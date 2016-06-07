@@ -42,6 +42,16 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
         std::cout << "Reload Shaders" << std::endl;
         example.loadShaders();
     }
+
+    if (key == GLFW_KEY_R && action == GLFW_RELEASE)
+    {
+        example.resetAC();
+    }
+
+    if (key == GLFW_KEY_V && action == GLFW_RELEASE)
+    {
+        example.switchVAO();
+    }
 }
 
 
@@ -68,7 +78,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
     glfwDefaultWindowHints();
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -98,6 +108,8 @@ int main(int /*argc*/, char ** /*argv*/)
 
         glfwSwapBuffers(window);
     }
+
+    example.cleanup();
 
     glfwMakeContextCurrent(nullptr);
 
