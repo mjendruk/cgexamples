@@ -234,7 +234,7 @@ void ScrAT::resize(int w, int h)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-std::uint64_t ScrAT::record(const bool benchmark) const
+std::uint64_t ScrAT::record(const bool benchmark)
 {
     glViewport(0, 0, m_width, m_height);
 
@@ -310,15 +310,18 @@ std::uint64_t ScrAT::record(const bool benchmark) const
 
     glBindBufferBase(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, 0);  
 
-    // glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, m_acbuffer);
+    if (!benchmark)
+    {
+        glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, m_acbuffer);
 
-    //auto data = 0u;
-    //gl32ext::glMemoryBarrier(gl32ext::GL_ATOMIC_COUNTER_BARRIER_BIT);
-    //glGetBufferSubData(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &data);
+        auto data = 0u;
+        gl32ext::glMemoryBarrier(gl32ext::GL_ATOMIC_COUNTER_BARRIER_BIT);
+        glGetBufferSubData(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &data);
 
-    //glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0);
-    //
-    //std::cout << "Number of recorded fragments: " << data << " (" << m_width << " x " << m_height << ")" << std::endl;
+        m_threshold[2] = static_cast<float>(data);
+
+        glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0);
+    }
 
     return elapsed;
 }
@@ -372,8 +375,8 @@ void ScrAT::render()
         m_threshold[0] = 0;
         m_time = std::chrono::high_resolution_clock::now();
     }
-    replay();
 
+    replay();
     updateThreshold();
 }
 

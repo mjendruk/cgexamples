@@ -31,7 +31,7 @@ public:
 protected:
     void loadUniformLocations();
 
-    std::uint64_t record(bool benchmark) const;
+    std::uint64_t record(bool benchmark);
     void replay();
 
     void updateThreshold();
@@ -53,7 +53,7 @@ protected:
     gl::GLuint m_acbuffer;   
 
     bool m_recorded;
-    std::array<float, 2> m_threshold;
+    std::array<float, 3> m_threshold; // { last, current, max }
     int m_vaoMode;
 
     using msecs = std::chrono::duration<float, std::chrono::milliseconds::period>;

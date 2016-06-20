@@ -20,11 +20,12 @@ void main()
 	if(threshold < index)
 		discard;
 
+	float f = clamp(smoothstep(0.0, 1.0, float(threshold - index) * 0.00001), 0.0, 0.75);
+
 	vec4 unpacked = unpackUnorm4x8(uint(index));
 	vec3 color = hsl2rgb(vec3(unpacked.b * 20.0
-		, unpacked.r * 1.0, unpacked.g * 0.75 + 0.125));
+		, mix(1.0, unpacked.r, f), mix(0.5, unpacked.g, f)));
 
-	float f = clamp(smoothstep(0.0, 1.0, float(threshold - index) * 0.00001), 0.0, 1.0);
 	
-	out_color = vec4(mix(vec3(1.0), color, f), 1.0);
+	out_color = vec4(color, 1.0);
 }
