@@ -361,9 +361,9 @@ void ScrAT::render()
             elapsed += record(true); // benchmark
 
         static const auto modes = std::array<std::string, 3>{ 
-            "(0) two triangles, two draw calls :     ", 
-            "(1) two triangles, single draw call :   ", 
-            "(2) single triangle, single draw call : " };
+            "(0) two triangles, two draw calls :         ", 
+            "(1) two triangles, single draw call (quad): ", 
+            "(2) single triangle, single draw call :     " };
         std::cout << modes[m_vaoMode] <<  cgutils::humanTimeDuration(elapsed / 1000) << std::endl;
 
         record(false);
@@ -379,7 +379,7 @@ void ScrAT::render()
 
 void ScrAT::updateThreshold()
 {
-    m_threshold[1] = m_threshold[0] + 0.01f * powf(10.f, static_cast<float>(m_timeDurationMagnitude))
+    m_threshold[1] = m_threshold[0] + 0.1f * powf(10.f, static_cast<float>(m_timeDurationMagnitude))
         * msecs(std::chrono::high_resolution_clock::now() - m_time).count();
 }
 

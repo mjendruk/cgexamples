@@ -99,6 +99,8 @@ int main(int /*argc*/, char ** /*argv*/)
     glfwSetWindowSizeCallback(window, resizeCallback);
     glfwSetKeyCallback(window, keyCallback);
 
+    std::cout << "Screen Aligned Quad vs. Triangle(s)" << std::endl << std::endl;
+
     std::cout << "Key Binding: " << std::endl
         << "  [F5] reload shaders" << std::endl
         << "  [r]  reset record and benchmark and record anew" << std::endl
