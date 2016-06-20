@@ -35,8 +35,10 @@ set(sources
 
     scrat.cpp
     scrat.h
-    ${data}/scrat.frag
-    ${data}/scrat.vert
+    ${data}/record.frag
+    ${data}/record.vert
+    ${data}/replay.frag
+    ${data}/replay.vert
 )
 
 

@@ -35,22 +35,28 @@ void resizeCallback(GLFWwindow * /*window*/, int width, int height)
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
 // http://www.glfw.org/docs/latest/group__input.html#ga7e496507126f35ea72f01b2e6ef6d155
-void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action, int /*mods*/)
+void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action, int mods)
 {
-    if (key == GLFW_KEY_F5 && action == GLFW_RELEASE)
+    if (action != GLFW_RELEASE)
+        return;
+
+    switch (key)
     {
-        std::cout << "Reload Shaders" << std::endl;
+    case GLFW_KEY_F5:
         example.loadShaders();
-    }
+        break;
 
-    if (key == GLFW_KEY_R && action == GLFW_RELEASE)
-    {
+    case GLFW_KEY_R:
         example.resetAC();
-    }
+        break;
 
-    if (key == GLFW_KEY_V && action == GLFW_RELEASE)
-    {
+    case GLFW_KEY_V:
         example.switchVAO();
+        break;
+
+    case GLFW_KEY_T:
+        mods == GLFW_MOD_SHIFT ? example.incrementReplaySpeed() : example.decrementReplaySpeed();
+        break;
     }
 }
 
@@ -92,6 +98,14 @@ int main(int /*argc*/, char ** /*argv*/)
 
     glfwSetWindowSizeCallback(window, resizeCallback);
     glfwSetKeyCallback(window, keyCallback);
+
+    std::cout << "Key Binding: " << std::endl
+        << "  [F5] reload shaders" << std::endl
+        << "  [r]  reset record and benchmark and record anew" << std::endl
+        << "  [v]  switch draw mode and associated vertex array" << std::endl
+        << "  [T]  increment replay speed (by magnitude)" << std::endl
+        << "  [t]  decrement replay speed (by magnitude)" << std::endl
+        << std::endl;
 
     glfwMakeContextCurrent(window);
 

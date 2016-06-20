@@ -137,13 +137,9 @@ bool createShader(gl::GLenum type, const std::string & name, const std::string &
 
     const auto source_ptr = source.c_str();
     if (source_ptr)
-    {
         glShaderSource(id, 1, &source_ptr, 0);
-    }
     else
-    {
         return false;
-    }
 
     glCompileShader(id);
 
@@ -191,6 +187,19 @@ std::string humanFileSize(const size_t bytes, const int decimals)
     ss << std::fixed << std::setprecision(decimals)
         << (bytes > 0 ? static_cast<double>(bytes) / pow(1024.0, f) : 0)
         << sz[f] << (f > 0 ? "iB" : "");
+
+    return ss.str();
+}
+
+std::string humanTimeDuration(const std::uint64_t nanoseconds, const int decimals)
+{
+    static const auto sz = "nums";
+    const auto f = nanoseconds > 0 ? static_cast<int>(floor((log10(nanoseconds)) / 3)) : 0;
+
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(decimals)
+        << (nanoseconds > 0 ? static_cast<double>(nanoseconds) / pow(1000.0, f) : 0)
+        << sz[f] << (f > 0 ? "s" : "");
 
     return ss.str();
 }

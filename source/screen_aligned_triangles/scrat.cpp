@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <chrono>
 
 #include <glbinding/gl32ext/gl.h>
 
@@ -15,7 +16,8 @@ using namespace gl32core;
 
 ScrAT::ScrAT()
 : m_recorded(false)
-, m_vaoMode(1)
+, m_vaoMode(0)
+, m_timeDurationMagnitude(3u)
 {
 }
 
@@ -115,6 +117,10 @@ void ScrAT::initialize()
     glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, m_acbuffer);
     glBufferData(gl32ext::GL_ATOMIC_COUNTER_BUFFER, sizeof(GLuint), NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0);
+
+    // setup time measurement
+
+    glGenQueries(1, &m_query);
 }
 
 void ScrAT::cleanup()
@@ -189,8 +195,8 @@ bool ScrAT::loadShaders()
 
 void ScrAT::loadUniformLocations()
 {
-    //glUseProgram(m_programs[0]);
-    //m_fragIndexUniformLocation = glGetUniformLocation(m_recordProgram, "fragIndex");
+    glUseProgram(m_programs[0]);
+    m_uniformLocations[2] = glGetUniformLocation(m_programs[0], "benchmark");
 
     glUseProgram(m_programs[1]);
     m_uniformLocations[0] = glGetUniformLocation(m_programs[1], "fragmentIndex");
@@ -228,14 +234,14 @@ void ScrAT::resize(int w, int h)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void ScrAT::record()
+std::uint64_t ScrAT::record(const bool benchmark) const
 {
     glViewport(0, 0, m_width, m_height);
 
     // clear record buffer
 
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-    //glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     static const GLfloat color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
     glClearBufferfv(GL_COLOR, 0, color);
@@ -251,47 +257,70 @@ void ScrAT::record()
 
     const auto counter = 0u;
     glBufferSubData(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &counter);
-
     glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0);
 
+    glBindBufferBase(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, m_acbuffer);
+    
     // draw
 
-    std::cout << m_vaoMode << std::endl;
-
-    glBindBufferBase(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, m_acbuffer);
-
-    glBindVertexArray(m_vaos[m_vaoMode]);
-    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[m_vaoMode]);
+    auto elapsed = std::uint64_t{ 0 };
 
     glUseProgram(m_programs[0]);
+    glUniform1i(m_uniformLocations[2], static_cast<GLint>(benchmark));
 
-    if (m_vaoMode)
+    if(benchmark)
+        glBeginQuery(gl::GL_TIME_ELAPSED, m_query);
+
+    switch(m_vaoMode)
     {
+    case 0:
+        glBindVertexArray(m_vaos[1]);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glDrawArrays(GL_TRIANGLES, 1, 3);
+        break;
+    case 1:
+        glBindVertexArray(m_vaos[1]);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        break;
+    case 2:
+        glBindVertexArray(m_vaos[0]);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        break;
     }
-    else
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 3);
 
-    glUseProgram(0);
+    if (benchmark)
+    {
+        glEndQuery(gl::GL_TIME_ELAPSED);       
+       
+        //auto done = 0;
+        //while (!done)
+        //    glGetQueryObjectiv(m_query, GL_QUERY_RESULT_AVAILABLE, &done);
+
+        glFinish();
+        glGetQueryObjectui64v(m_query, GL_QUERY_RESULT, &elapsed);
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    glBindBufferBase(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, 0);
+    glUseProgram(0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
-    glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, m_acbuffer);
+    glBindBufferBase(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, 0);  
 
-    auto data = 0u;
-    gl32ext::glMemoryBarrier(gl32ext::GL_ATOMIC_COUNTER_BARRIER_BIT);
-    glGetBufferSubData(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &data);
+    // glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, m_acbuffer);
 
-    glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0);
-    
-    std::cout << "Number of recorded fragments: " << data << " (" << m_width << " x " << m_height << ")" << std::endl;
+    //auto data = 0u;
+    //gl32ext::glMemoryBarrier(gl32ext::GL_ATOMIC_COUNTER_BARRIER_BIT);
+    //glGetBufferSubData(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &data);
+
+    //glBindBuffer(gl32ext::GL_ATOMIC_COUNTER_BUFFER, 0);
+    //
+    //std::cout << "Number of recorded fragments: " << data << " (" << m_width << " x " << m_height << ")" << std::endl;
+
+    return elapsed;
 }
 
 void ScrAT::replay()
@@ -308,7 +337,7 @@ void ScrAT::replay()
     glBindTexture(GL_TEXTURE_2D, m_textures[0]);
 
     glUseProgram(m_programs[1]);
-    glUniform1f(m_uniformLocations[1], m_threshold);
+    glUniform1f(m_uniformLocations[1], m_threshold[1]);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -325,12 +354,33 @@ void ScrAT::render()
 {
     if (!m_recorded)
     {
-        record();
+        std::cout << "benchmarking ... ";
+
+        auto elapsed = std::uint64_t{ 0 };
+        for(auto i = 0; i < 1000; ++i)
+            elapsed += record(true); // benchmark
+
+        static const auto modes = std::array<std::string, 3>{ 
+            "(0) two triangles, two draw calls :     ", 
+            "(1) two triangles, single draw call :   ", 
+            "(2) single triangle, single draw call : " };
+        std::cout << modes[m_vaoMode] <<  cgutils::humanTimeDuration(elapsed / 1000) << std::endl;
+
+        record(false);
         m_recorded = true;
-        m_threshold = 0.f;
+
+        m_threshold[0] = 0;
+        m_time = std::chrono::high_resolution_clock::now();
     }
     replay();
-    m_threshold += 1024.f;
+
+    updateThreshold();
+}
+
+void ScrAT::updateThreshold()
+{
+    m_threshold[1] = m_threshold[0] + 0.01f * powf(10.f, static_cast<float>(m_timeDurationMagnitude))
+        * msecs(std::chrono::high_resolution_clock::now() - m_time).count();
 }
 
 void ScrAT::execute()
@@ -346,5 +396,28 @@ void ScrAT::resetAC()
 void ScrAT::switchVAO()
 {
     m_recorded = false;
-    m_vaoMode = (m_vaoMode + 1) % 2;
+    m_vaoMode = (++m_vaoMode) % 3;
+}
+
+void ScrAT::incrementReplaySpeed()
+{
+    updateThreshold();
+    
+    m_threshold[0] = m_threshold[1];   
+    m_time = std::chrono::high_resolution_clock::now();
+
+    ++m_timeDurationMagnitude;
+}
+
+void ScrAT::decrementReplaySpeed()
+{
+    if (m_timeDurationMagnitude == 0)
+        return;
+
+    updateThreshold();
+
+    m_threshold[0] = m_threshold[1];
+    m_time = std::chrono::high_resolution_clock::now();
+
+    --m_timeDurationMagnitude;
 }

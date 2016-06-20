@@ -9,10 +9,9 @@ out vec4 out_color;
 void main()
 {
 	float index = texture(fragmentLocation, v_uv).r;
-	if(threshold < index)
+	if(threshold * 10 < index)
 		discard;
 
 	vec4 unpacked = unpackUnorm4x8(uint(index));
-	out_color = vec4(unpacked.rgb * vec3(1.0, 1.0, 8.0), 1.0);
-
+	out_color = vec4(unpacked.rgb * vec3(1.0, 1.0, 2.0), 1.0);
 }

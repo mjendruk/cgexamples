@@ -35,5 +35,6 @@ CGUTILS_API float  mse(const std::vector<glm::vec4> & I, const std::vector<glm::
 CGUTILS_API float psnr(const std::vector<glm::vec4> & I, const std::vector<glm::vec4> & K, const float scale);
 
 CGUTILS_API std::string humanFileSize(const size_t bytes, const int decimals = 2);
+CGUTILS_API std::string humanTimeDuration(const std::uint64_t nanoseconds, const int decimals = 2);
 
 } // namespace cgutils
