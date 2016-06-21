@@ -348,24 +348,22 @@ void ScrAT::replay()
 
     // draw
 
-    glBindVertexArray(m_vaos[1]);
-    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_textures[0]);
 
     glUseProgram(m_programs[1]);
     glUniform1f(m_uniformLocations[1], m_threshold[1]);
 
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // use screen aligned triangle here
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glBindVertexArray(m_vaos[0]);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
 
     glUseProgram(0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
 }
 
 void ScrAT::render()
