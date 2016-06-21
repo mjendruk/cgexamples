@@ -35,8 +35,12 @@ protected:
     std::array<gl::GLuint, 1> m_vaos;
 
     std::array<gl::GLuint, 1> m_textures;
-    std::array<gl::GLuint, 1> m_uniformLocations;
+    std::array<gl::GLuint, 3> m_uniformLocations;
+
+    using msecs = std::chrono::duration<float, std::chrono::milliseconds::period>;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_time;
 
     int m_width;
     int m_height;
+    float m_angle;
 };

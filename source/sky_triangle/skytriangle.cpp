@@ -4,7 +4,12 @@
 #include <cmath>
 #include <iostream>
 #include <string>
-#include <chrono>
+
+#pragma warning(push)
+#pragma warning(disable : 4201)
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#pragma warning(pop)
 
 #include <glbinding/gl32ext/gl.h>
 
@@ -15,6 +20,8 @@ using namespace gl32core;
 
 
 SkyTriangle::SkyTriangle()
+: m_angle(0.f)
+, m_time(std::chrono::high_resolution_clock::now())
 {
 }
 
@@ -122,6 +129,9 @@ void SkyTriangle::loadUniformLocations()
 {
     glUseProgram(m_programs[0]);
     m_uniformLocations[0] = glGetUniformLocation(m_programs[0], "cubemap");
+    
+    m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "modelView");
+    m_uniformLocations[2] = glGetUniformLocation(m_programs[0], "inverseProjection");
 
     glUseProgram(0);
 }
@@ -168,14 +178,27 @@ void SkyTriangle::render()
     glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // draw
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_textures[0]);
 
     glUseProgram(m_programs[0]);
     glUniform1f(m_uniformLocations[0], 0);
+
+    // setup view
+
+    const auto view = glm::lookAt(glm::vec3(0.f, 0.f, 1.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.f));
+    const auto projection = glm::perspective(glm::radians(20.f), static_cast<float>(m_width) / m_height, 1.f, 2.f);
     
+    m_angle = 0.f; //-0.0001f * msecs(std::chrono::high_resolution_clock::now() - m_time).count();
+    //const auto transform = glm::inverse(glm::rotate(view, m_angle, glm::vec3(0.f, 1.f, 0.f)));
+    const auto transform = glm::inverse(projection * view);
+
+
+    glUniformMatrix4fv(m_uniformLocations[1], 1, GL_FALSE, glm::value_ptr(transform));
+    glUniformMatrix4fv(m_uniformLocations[2], 1, GL_FALSE, glm::value_ptr(projection));
+
+    // draw
+
     glBindVertexArray(m_vaos[0]);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
