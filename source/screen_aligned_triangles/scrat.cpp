@@ -274,16 +274,24 @@ std::uint64_t ScrAT::record(const bool benchmark)
     switch(m_vaoMode)
     {
     case 0:
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBindVertexArray(m_vaos[1]);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glDrawArrays(GL_TRIANGLES, 1, 3);
         break;
     case 1:
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBindVertexArray(m_vaos[1]);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         break;
     case 2:
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBindVertexArray(m_vaos[0]);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        break;
+    case 3:
+        glPolygonMode(GL_FRONT_AND_BACK, gl::GL_FILL_RECTANGLE_NV);
+        glBindVertexArray(m_vaos[1]);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         break;
     }
@@ -291,12 +299,12 @@ std::uint64_t ScrAT::record(const bool benchmark)
     if (benchmark)
     {
         glEndQuery(gl::GL_TIME_ELAPSED);       
-       
-        //auto done = 0;
-        //while (!done)
-        //    glGetQueryObjectiv(m_query, GL_QUERY_RESULT_AVAILABLE, &done);
 
-        glFinish();
+        auto done = 0;
+        while (!done)
+            glGetQueryObjectiv(m_query, GL_QUERY_RESULT_AVAILABLE, &done);
+
+        //glFinish();
         glGetQueryObjectui64v(m_query, GL_QUERY_RESULT, &elapsed);
     }
 
@@ -363,10 +371,11 @@ void ScrAT::render()
         for(auto i = 0; i < 1000; ++i)
             elapsed += record(true); // benchmark
 
-        static const auto modes = std::array<std::string, 3>{ 
+        static const auto modes = std::array<std::string, 4>{ 
             "(0) two triangles, two draw calls :         ", 
             "(1) two triangles, single draw call (quad): ", 
-            "(2) single triangle, single draw call :     " };
+            "(2) single triangle, single draw call :     ",
+            "(3) fill rectangle ext, single draw call:   " };
         std::cout << modes[m_vaoMode] <<  cgutils::humanTimeDuration(elapsed / 1000) << std::endl;
 
         record(false);
@@ -399,7 +408,7 @@ void ScrAT::resetAC()
 void ScrAT::switchVAO()
 {
     m_recorded = false;
-    m_vaoMode = (++m_vaoMode) % 3;
+    m_vaoMode = (++m_vaoMode) % 4;
 }
 
 void ScrAT::incrementReplaySpeed()
