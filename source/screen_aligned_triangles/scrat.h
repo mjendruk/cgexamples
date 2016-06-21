@@ -38,7 +38,6 @@ protected:
 
 protected:
     std::array<gl::GLuint, 2> m_vbos;
-    gl::GLuint m_colors;
 
     std::array<gl::GLuint, 2> m_programs;
     std::array<gl::GLuint, 2> m_vertexShaders;

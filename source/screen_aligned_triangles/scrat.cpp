@@ -26,8 +26,6 @@ ScrAT::~ScrAT()
     glDeleteBuffers(static_cast<GLsizei>(m_vbos.size()), m_vbos.data());
     glDeleteVertexArrays(static_cast<GLsizei>(m_vaos.size()), m_vaos.data());
 
-    glDeleteBuffers(1, &m_colors);
-
     for(auto i = 0; i < m_programs.size(); ++i)
         glDeleteProgram(m_programs[i]);
     for (auto i = 0; i < m_vertexShaders.size(); ++i)
@@ -38,6 +36,9 @@ ScrAT::~ScrAT()
     glDeleteFramebuffers(1, &m_fbo);
 
     glDeleteTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
+
+    glDeleteBuffers(1, &m_acbuffer);
+    glDeleteQueries(1, &m_query);
 }
 
 void ScrAT::initialize()
@@ -129,29 +130,35 @@ void ScrAT::cleanup()
 
 bool ScrAT::loadShaders()
 {
+    static const auto sourceFiles = std::array<std::string, 4>{
+        "data/screen_aligned_triangles/record.vert",
+        "data/screen_aligned_triangles/record.frag",
+        "data/screen_aligned_triangles/replay.vert",
+        "data/screen_aligned_triangles/replay.frag"  };
+
     {   static const auto i = 0;
 
-        const auto vertexShaderSource = cgutils::textFromFile("data/screen_aligned_triangles/record.vert");
+        const auto vertexShaderSource = cgutils::textFromFile(sourceFiles[0].c_str());
         const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
         if (vertexShaderSource_ptr)
             glShaderSource(m_vertexShaders[i], 1, &vertexShaderSource_ptr, 0);
 
         glCompileShader(m_vertexShaders[i]);
-        bool success = cgutils::checkForCompilationError(m_vertexShaders[i], "record vertex shader");
+        bool success = cgutils::checkForCompilationError(m_vertexShaders[i], sourceFiles[0]);
 
 
-        const auto fragmentShaderSource = cgutils::textFromFile("data/screen_aligned_triangles/record.frag");
+        const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[1].c_str());
         const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
         if (fragmentShaderSource_ptr)
             glShaderSource(m_fragmentShaders[i], 1, &fragmentShaderSource_ptr, 0);
 
         glCompileShader(m_fragmentShaders[i]);
-        success &= cgutils::checkForCompilationError(m_fragmentShaders[i], "record fragment shader");
+        success &= cgutils::checkForCompilationError(m_fragmentShaders[i], sourceFiles[1]);
 
         if (!success)
             return false;
 
-        glLinkProgram(m_programs[i]);
+        gl::glLinkProgram(m_programs[i]);
 
         success &= cgutils::checkForLinkerError(m_programs[i], "record program");
         if (!success)
@@ -160,31 +167,31 @@ bool ScrAT::loadShaders()
 
     {   static const auto i = 1;
 
-    const auto vertexShaderSource = cgutils::textFromFile("data/screen_aligned_triangles/replay.vert");
-    const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
-    if (vertexShaderSource_ptr)
-        glShaderSource(m_vertexShaders[i], 1, &vertexShaderSource_ptr, 0);
+        const auto vertexShaderSource = cgutils::textFromFile(sourceFiles[2].c_str());
+        const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
+        if (vertexShaderSource_ptr)
+            glShaderSource(m_vertexShaders[i], 1, &vertexShaderSource_ptr, 0);
 
-    glCompileShader(m_vertexShaders[i]);
-    bool success = cgutils::checkForCompilationError(m_vertexShaders[i], "replay vertex shader");
+        glCompileShader(m_vertexShaders[i]);
+        bool success = cgutils::checkForCompilationError(m_vertexShaders[i], sourceFiles[2]);
 
 
-    const auto fragmentShaderSource = cgutils::textFromFile("data/screen_aligned_triangles/replay.frag");
-    const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
-    if (fragmentShaderSource_ptr)
-        glShaderSource(m_fragmentShaders[i], 1, &fragmentShaderSource_ptr, 0);
+        const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[3].c_str());
+        const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
+        if (fragmentShaderSource_ptr)
+            glShaderSource(m_fragmentShaders[i], 1, &fragmentShaderSource_ptr, 0);
 
-    glCompileShader(m_fragmentShaders[i]);
-    success &= cgutils::checkForCompilationError(m_fragmentShaders[i], "replay fragment shader");
+        glCompileShader(m_fragmentShaders[i]);
+        success &= cgutils::checkForCompilationError(m_fragmentShaders[i], sourceFiles[3]);
 
-    if (!success)
-        return false;
+        if (!success)
+            return false;
 
-    glLinkProgram(m_programs[i]);
+        gl::glLinkProgram(m_programs[i]);
 
-    success &= cgutils::checkForLinkerError(m_programs[i], "replay program");
-    if (!success)
-        return false;
+        success &= cgutils::checkForLinkerError(m_programs[i], "replay program");
+        if (!success)
+            return false;
     }
 
 
@@ -202,7 +209,7 @@ void ScrAT::loadUniformLocations()
     m_uniformLocations[0] = glGetUniformLocation(m_programs[1], "fragmentIndex");
     m_uniformLocations[1] = glGetUniformLocation(m_programs[1], "threshold");
 
-    //glUseProgram(0);
+    glUseProgram(0);
 }
 
 bool ScrAT::loadTextures()
