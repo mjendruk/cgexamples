@@ -63,7 +63,7 @@ protected:
 
     glm::mat4 m_transform;
 
-    using musecs = std::chrono::duration<float, std::chrono::nanoseconds::period>;
+    using secs = std::chrono::duration<double, std::chrono::seconds::period>;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_time;
 
     int m_width;

@@ -1,4 +1,4 @@
-#version 330 core
+#version 400 core
 
 uniform mat4 transform;
 
@@ -14,9 +14,10 @@ out vec3 v_color;
 void main()
 {
     //gl_Position = transform * vec4(in_vertex, 0.0, 1.0);
-    v_scale = 0.01;
+    v_scale = 0.02;
 
     gl_Position = transform * vec4(in_vertex, 1.0);
    // v_uv = in_vertex.xy;
-   v_color = mix(in_vertex * 0.5 + 0.5, vec3(.8), length(in_velocity));
+   //v_color = mix(in_vertex * 0.5 + 0.5, vec3(.5), length(in_velocity));
+   v_color = in_vertex * 0.5 + 0.5;
 }

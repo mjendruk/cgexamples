@@ -71,7 +71,6 @@ void Particles::initialize()
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
 
-
     glBindVertexArray(0);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -224,7 +223,7 @@ void Particles::process()
     if (m_paused)
         return;
 
-    const auto elapsed = musecs(m_time - t0).count() * 0.000000001f;
+    const auto elapsed = static_cast<float>(secs(m_time - t0).count());
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
@@ -267,7 +266,7 @@ void Particles::render()
     //auto eye = glm::vec3(0.f, 1.f, 2.f);
 
     const auto view = glm::lookAt(eye, glm::vec3(0.f, 0.5f, 0.f), glm::vec3(0.f, 1.f, 0.f));
-    const auto projection = glm::perspective(glm::radians(30.f), static_cast<float>(m_width) / m_height, 0.1f, 6.f);
+    const auto projection = glm::perspective(glm::radians(30.f), static_cast<float>(m_width) / m_height, 0.5f, 8.f);
 
     m_transform = projection * view;
 
@@ -331,12 +330,11 @@ void Particles::render()
 
     // draw v3
 
-    process();
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
+    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
@@ -350,6 +348,7 @@ void Particles::render()
     glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
     
     glDrawArrays(GL_POINTS, 0, m_num);
+    process();
 
     glBindVertexArray(0);
 
