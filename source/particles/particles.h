@@ -56,8 +56,8 @@ protected:
     //std::array<gl::GLuint, 1> m_textures;
     std::array<gl::GLuint, 3> m_uniformLocations;
 
-    std::vector<glm::vec4, aligned_allocator<glm::vec4, sizeof(glm::vec4)>> m_positions;
-    std::vector<glm::vec4, aligned_allocator<glm::vec4, sizeof(glm::vec4)>> m_velocities;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4>> m_positions;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4>> m_velocities;
 
     std::int32_t m_num;
     bool m_paused;
@@ -66,7 +66,7 @@ protected:
     glm::mat4 m_transform;
 
     using secs = std::chrono::duration<double, std::chrono::seconds::period>;
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_time;
+    std::chrono::high_resolution_clock::time_point m_time;
 
     int m_width;
     int m_height;

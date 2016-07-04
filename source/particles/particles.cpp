@@ -23,9 +23,9 @@ using namespace gl32core;
 
 
 Particles::Particles()
-: m_time(std::chrono::high_resolution_clock::now())
-, m_num(1000000)
+: m_num(250000)
 , m_paused(false)
+, m_time(std::chrono::high_resolution_clock::now())
 {
 }
 
@@ -34,13 +34,13 @@ Particles::~Particles()
     glDeleteBuffers(static_cast<GLsizei>(m_vbos.size()), m_vbos.data());
     glDeleteVertexArrays(static_cast<GLsizei>(m_vaos.size()), m_vaos.data());
 
-    for(auto i = 0; i < m_programs.size(); ++i)
+    for(auto i = 0ull; i < m_programs.size(); ++i)
         glDeleteProgram(m_programs[i]);
-    for (auto i = 0; i < m_vertexShaders.size(); ++i)
+    for (auto i = 0ull; i < m_vertexShaders.size(); ++i)
         glDeleteShader(m_vertexShaders[i]);
-    for (auto i = 0; i < m_fragmentShaders.size(); ++i)
+    for (auto i = 0ull; i < m_fragmentShaders.size(); ++i)
         glDeleteShader(m_fragmentShaders[i]);
-    for (auto i = 0; i < m_geometryShaders.size(); ++i)
+    for (auto i = 0ull; i < m_geometryShaders.size(); ++i)
         glDeleteShader(m_geometryShaders[i]);
     //glDeleteTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
 }
@@ -50,7 +50,9 @@ void Particles::initialize()
     //glClearColor(0.12f, 0.14f, 0.18f, 1.0f);
     glClearColor(0.f, 0.f, 0.f, 1.0f);
 
-    glGenBuffers(2, m_vbos.data());
+    glEnable(GL_DEPTH_TEST);
+
+    glGenBuffers(static_cast<GLsizei>(m_vbos.size()), m_vbos.data());
 
 //    static const float vertices[] = { -1.f, -1.f, -1.f, 1.f, 1.f, -1.f, 1.f, 1.f };
 
@@ -65,20 +67,20 @@ void Particles::initialize()
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STREAM_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
 
-    glEnableVertexAttribArray(1);
+    /*glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);*/
 
     glBindVertexArray(0);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    for (auto i = 0; i < m_programs.size(); ++i)
+    for (auto i = 0ull; i < m_programs.size(); ++i)
     {
         m_programs[i] = glCreateProgram();
 
@@ -107,10 +109,10 @@ void Particles::cleanup()
 
 bool Particles::loadShaders()
 {
-    static const auto sourceFiles = std::array<std::string, 3>{
+    static const auto sourceFiles = std::array<std::string, 3>{{
         "data/particles/particles.vert",
         "data/particles/particles.geom",
-        "data/particles/particles.frag", };
+        "data/particles/particles.frag" }};
 
     {   static const auto i = 0;
 
@@ -221,9 +223,11 @@ void Particles::process()
     static const auto friction = 0.33f;
 
     static const __m128 sse_gravity = _mm_load_ps(reinterpret_cast<const float*>(&gravity));
-    static const __m128 sse_friction = _mm_set1_ps(friction);
-    static const __m128 sse_one_minus_friction = _mm_set1_ps(1.0f - friction);
-    static const __m128 sse_05 = _mm_set1_ps(0.5f);
+    static const __m128 sse_friction = _mm_set_ps(0.0f, friction, friction, friction);
+    static const __m128 sse_one_minus_friction = _mm_set_ps(0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction);
+    static const __m128 sse_05 = _mm_set_ps(0.0f, 0.5f, 0.5f, 0.5f);
+    static const __m128 sse_yminus1 = _mm_set_ps(0.0f, 1.0f, -1.0f, 1.0f);
+    static const __m128 sse_one_minus_friction_yminus1 = _mm_mul_ps(sse_one_minus_friction, sse_yminus1);
 
     const auto t0 = m_time;
     m_time = std::chrono::high_resolution_clock::now();
@@ -232,14 +236,8 @@ void Particles::process()
         return;
 
     const auto elapsed = static_cast<float>(secs(m_time - t0).count());
-    const auto elapsed2 = elapsed * elapsed;
-    const __m128 sse_elapsed = _mm_set1_ps(elapsed);
-    const __m128 sse_elapsed2 = _mm_set1_ps(elapsed2);
-
-    //std::cout << elapsed << std::endl;
-
-    /*__m128 sse_gravity = _mm_set_ps(gravity.x, gravity.y, gravity.z, 0.0f);
-    __m128 sse_friction = _mm_set1_ps(friction);*/
+    const __m128 sse_elapsed = _mm_set_ps(0.0f, elapsed, elapsed, elapsed);
+    const __m128 sse_elapsed2 = _mm_mul_ps(sse_elapsed, sse_elapsed);
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
@@ -249,25 +247,19 @@ void Particles::process()
         __m128 sse_position = _mm_load_ps(glm::value_ptr(m_positions[i]));
         __m128 sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
 
-        __m128 sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
+        const __m128 sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
 
-        __m128 next_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
-        __m128 next_velocity = _mm_add_ps(sse_velocity, _mm_mul_ps(sse_f, sse_elapsed));
-        float length2 = _mm_cvtss_f32(_mm_dp_ps(next_velocity, next_velocity, 0xFF));
+        sse_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
+        sse_velocity = _mm_add_ps(_mm_mul_ps(sse_f, sse_elapsed), sse_velocity);
 
-        if (reinterpret_cast<float*>(&next_position)[1] < 0.0f)
+        if (reinterpret_cast<glm::vec4*>(&sse_position)->y < 0.0f)
         {
-            next_velocity = _mm_mul_ps(next_velocity, sse_one_minus_friction);
-
-            reinterpret_cast<float*>(&next_position)[1] *= -1.0f;
-            reinterpret_cast<float*>(&next_velocity)[1] *= -1.0f;
+            sse_position = _mm_mul_ps(sse_position, sse_yminus1);
+            sse_velocity = _mm_mul_ps(sse_velocity, sse_one_minus_friction_yminus1);
         }
 
-        _mm_store_ps(glm::value_ptr(m_positions[i]), next_position);
-        _mm_store_ps(glm::value_ptr(m_velocities[i]), next_velocity);
-
-        if (length2 < 2.5e-07f)
-            spawn(i);
+        _mm_store_ps(glm::value_ptr(m_positions[i]), sse_position);
+        _mm_store_ps(glm::value_ptr(m_velocities[i]), sse_velocity);
 
         // normal
 
@@ -284,13 +276,23 @@ void Particles::process()
         m_velocities[i] *= (1.0 - friction);*/
     }
 
-    /*
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        if (glm::length(m_velocities[i]) < 0.01f)
+        // SSE
+
+        __m128 sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
+
+        const auto length2 = _mm_cvtss_f32(_mm_dp_ps(sse_velocity, sse_velocity, 0x71));
+
+        if (length2 < 2.5e-07f)
             spawn(i);
-    }*/
+
+        // normal
+
+        //if (glm::length(m_velocities[i]) < 0.01f)
+        //    spawn(i);
+    }
 }
 
 void Particles::render()
@@ -376,33 +378,36 @@ void Particles::render()
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
     //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
     //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    glEnable(GL_DEPTH_TEST);
+    //glEnable(GL_DEPTH_TEST);
     //glEnable(GL_BLEND);
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glBindVertexArray(m_vaos[0]);
 
     //auto T = glm::scale(m_transform, glm::vec3(0.01f));
-    glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
+    //glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
 
     glDrawArrays(GL_POINTS, 0, m_num);
-    process();
+
 
     glBindVertexArray(0);
 
     glUseProgram(0);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, 0);
     //glDisable(GL_BLEND);
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
 
+
+    process();
 }
 
 

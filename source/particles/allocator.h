@@ -4,7 +4,7 @@
 /**
  * @see http://jmabille.github.io/blog/2014/12/06/aligned-memory-allocator/
  */
-template <class T, int N>
+template <class T, int N = sizeof(T)>
 class aligned_allocator
 {
 public:
