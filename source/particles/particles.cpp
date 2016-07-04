@@ -286,14 +286,14 @@ void Particles::process()
         //const auto f = gravity - m_velocities[i] * friction;
         //m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
         //m_velocities[i] = m_velocities[i] + (f * elapsed);
-
+        /*
         if (m_positions[i].y >= 0.f)
             continue;
 
         m_positions[i].y *= -1.f;
         m_velocities[i].y *= -1.f;
 
-        m_velocities[i] *= (1.0 - friction);
+        m_velocities[i] *= (1.0 - friction);*/
     }
 
     /*
