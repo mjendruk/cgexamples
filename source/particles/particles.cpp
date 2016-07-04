@@ -199,8 +199,8 @@ void Particles::spawn(const std::uint32_t index)
     const auto e = 0.01f * std::chrono::time_point_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 
-    m_velocities[index] = r * glm::linearRand(0.f, 1.f) + glm::vec4(sin(e * 0.545545), 3.f + 2.f * sin(e * 0.618709f), sin(0.121031f * e), 0.0f);
-    m_positions[index] = glm::vec4(glm::ballRand(0.02f), 0.0f) + glm::vec4(0.f, 0.5f, 0.f, 0.0f);
+    m_velocities[index] = r * glm::linearRand(0.f, 1.f) + glm::vec4(sin(0.121031f * e), 3.f + 2.f * sin(e * 0.618709f), sin(e * 0.545545), 0.0f);
+    m_positions[index] = glm::vec4(glm::ballRand(0.02f), 0.0f) + glm::vec4(0.0f, 0.5f, 0.0f, 0.f);
 }
 
 void Particles::prepare()
@@ -208,6 +208,7 @@ void Particles::prepare()
     m_positions.resize(m_num);
     m_velocities.resize(m_num);
 
+    #pragma omp parallel for
     for (auto i = 0u; i < m_num; ++i)
         spawn(i);
 
@@ -216,10 +217,10 @@ void Particles::prepare()
 
 void Particles::process()
 {
-    static const auto gravity = glm::vec3(0.0, -9.80665f, 0.0); // m/s²;
+    static const auto gravity = glm::vec4(0.0f, -9.80665f, 0.0f, 0.0f); // m/s²;
     static const auto friction = 0.33f;
 
-    static const __m128 sse_gravity = _mm_set_ps(0.0, gravity.z, gravity.y, gravity.x);
+    static const __m128 sse_gravity = _mm_load_ps(reinterpret_cast<const float*>(&gravity));
     static const __m128 sse_friction = _mm_set1_ps(friction);
     static const __m128 sse_one_minus_friction = _mm_set1_ps(1.0f - friction);
     static const __m128 sse_05 = _mm_set1_ps(0.5f);
