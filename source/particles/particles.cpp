@@ -233,19 +233,17 @@ void Particles::process()
 
     const auto elapsed = static_cast<float>(secs(m_time - t0).count());
     const auto elapsed2 = elapsed * elapsed;
+    const __m128 sse_elapsed = _mm_set1_ps(elapsed);
+    const __m128 sse_elapsed2 = _mm_set1_ps(elapsed2);
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
         // SSE
 
-        //__m128 sse_position = _mm_set_ps(m_positions[i].x, m_positions[i].y, m_positions[i].z, m_positions[i].w);
-        //__m128 sse_velocity = _mm_set_ps(m_velocities[i].x, m_velocities[i].y, m_velocities[i].z, m_velocities[i].w);
-        __m128 sse_position = _mm_load_ps(reinterpret_cast<float*>(&m_positions[i]));
-        __m128 sse_velocity = _mm_load_ps(reinterpret_cast<float*>(&m_velocities[i]));
+        __m128 sse_position = _mm_load_ps(glm::value_ptr(m_positions[i]));
+        __m128 sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
 
-        __m128 sse_elapsed = _mm_set1_ps(elapsed);
-        __m128 sse_elapsed2 = _mm_set1_ps(elapsed2);
         __m128 sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
 
         __m128 next_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
@@ -260,18 +258,8 @@ void Particles::process()
             reinterpret_cast<float*>(&next_velocity)[1] *= -1.0f;
         }
 
-        _mm_store_ps(reinterpret_cast<float*>(&m_positions[i]), next_position);
-        _mm_store_ps(reinterpret_cast<float*>(&m_velocities[i]), next_velocity);
-
-        /*m_positions[i].x = reinterpret_cast<float*>(&next_position)[3];
-        m_positions[i].y = reinterpret_cast<float*>(&next_position)[2];
-        m_positions[i].z = reinterpret_cast<float*>(&next_position)[1];
-        m_positions[i].w = reinterpret_cast<float*>(&next_position)[0];
-
-        m_velocities[i].x = reinterpret_cast<float*>(&next_velocity)[3];
-        m_velocities[i].y = reinterpret_cast<float*>(&next_velocity)[2];
-        m_velocities[i].z = reinterpret_cast<float*>(&next_velocity)[1];
-        m_velocities[i].w = reinterpret_cast<float*>(&next_velocity)[0];*/
+        _mm_store_ps(glm::value_ptr(m_positions[i]), next_position);
+        _mm_store_ps(glm::value_ptr(m_velocities[i]), next_velocity);
 
         if (length2 < 2.5e-07f)
             spawn(i);
