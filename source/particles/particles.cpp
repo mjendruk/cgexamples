@@ -24,7 +24,7 @@ using namespace gl32core;
 
 Particles::Particles()
 : m_time(std::chrono::high_resolution_clock::now())
-, m_num(1e+5)
+, m_num(1e+6)
 , m_paused(false)
 {
 }
@@ -216,7 +216,7 @@ void Particles::prepare()
 
 void Particles::process()
 {
-    static const auto gravity = glm::vec3(0.0, -9.80665f, 0.0); // m/s²;
+    static const auto gravity = glm::vec3(0.0, -1.80665f, 0.0); // m/s²;
     static const auto friction = 0.33f;
 
     const auto t0 = m_time;
@@ -228,7 +228,7 @@ void Particles::process()
     const auto elapsed = static_cast<float>(secs(m_time - t0).count());
     const auto elapsed2 = elapsed * elapsed;
 
-    std::cout << elapsed << std::endl;
+    //std::cout << elapsed << std::endl;
 
     __m128 sse_gravity = _mm_set_ps(gravity.x, gravity.y, gravity.z, 0.0f);
     __m128 sse_friction = _mm_set1_ps(friction);
@@ -254,9 +254,9 @@ void Particles::process()
         m_velocities[i].y = reinterpret_cast<float*>(&next_velocity)[2];
         m_velocities[i].z = reinterpret_cast<float*>(&next_velocity)[1];
 
-        /*const auto f = gravity - m_velocities[i] * friction;
-        m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
-        m_velocities[i] = m_velocities[i] + (f * elapsed);*/
+        //const auto f = gravity - m_velocities[i] * friction;
+        //m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
+        //m_velocities[i] = m_velocities[i] + (f * elapsed);
 
         if (m_positions[i].y >= 0.f)
             continue;
@@ -267,9 +267,10 @@ void Particles::process()
         m_velocities[i] *= (1.0 - friction);
     }
 
+    #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        if (glm::length(m_velocities[i]) < 0.0005f)
+        if (glm::length(m_velocities[i]) < 0.01f)
             spawn(i);
     }
 }
@@ -354,7 +355,6 @@ void Particles::render()
 
 
     // draw v3
-    process();
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_positions.data(), GL_STATIC_DRAW);
@@ -373,6 +373,7 @@ void Particles::render()
     glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
     
     glDrawArrays(GL_POINTS, 0, m_num);
+    process();
 
     glBindVertexArray(0);
 
