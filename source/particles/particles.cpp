@@ -22,7 +22,7 @@ using namespace gl32core;
 
 Particles::Particles()
 : m_time(std::chrono::high_resolution_clock::now())
-, m_num(250000)
+, m_num(1e+5)
 , m_paused(false)
 {
 }
@@ -329,12 +329,13 @@ void Particles::render()
 
 
     // draw v3
+    process();
 
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
@@ -348,7 +349,6 @@ void Particles::render()
     glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
     
     glDrawArrays(GL_POINTS, 0, m_num);
-    process();
 
     glBindVertexArray(0);
 
