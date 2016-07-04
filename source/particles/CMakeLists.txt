@@ -7,6 +7,7 @@ find_package(GLM REQUIRED)
 find_package(GLFW)
 find_package(glbinding REQUIRED)
 
+find_package(OpenMP QUIET)
 
 # 
 # Executable name and options
@@ -19,6 +20,10 @@ set(target particles)
 if (NOT GLFW_FOUND)
     message("${target} skipped: GLFW not found")
     return()
+endif()
+
+if (NOT OPENMP_FOUND)
+    message("Loop parallelization in ${target} skipped: OpenMP not found")
 endif()
 
 message(STATUS "${target}")
@@ -98,6 +103,7 @@ target_link_libraries(${target}
 
 target_compile_definitions(${target}
     PRIVATE
+    $<$<BOOL:"${OPENMP_FOUND}">:USE_OPENMP>
     ${DEFAULT_COMPILE_DEFINITIONS}
     PUBLIC
     GLFW_INCLUDE_NONE
@@ -111,6 +117,7 @@ target_compile_definitions(${target}
 
 target_compile_options(${target}
     PRIVATE
+    $<$<BOOL:"${OPENMP_FOUND}">:${OpenMP_CXX_FLAGS}>
     ${DEFAULT_COMPILE_OPTIONS}
 )
 
@@ -121,6 +128,7 @@ target_compile_options(${target}
 
 target_link_libraries(${target}
     PRIVATE
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:$<$<BOOL:"${OPENMP_FOUND}">:${OpenMP_CXX_FLAGS}>>
     ${DEFAULT_LINKER_OPTIONS}
 )
 

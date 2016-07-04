@@ -1,15 +1,32 @@
-#version 150 core
+#version 330 core
 
-uniform samplerCube cubemap;
-
-in vec2 v_uv;
-in vec4 v_ray;
+in vec2 g_uv;
+in vec3 g_color;
 
 out vec4 out_color;
 
 void main()
 {
-	vec3 stu = normalize(v_ray.xyz);
+	vec2 uv = g_uv;
+/*
+	// point spread function
+	float v = dot(uv, uv);
+	if(v > 1.0)
+		discard;
 
-	out_color = vec4(texture(cubemap, stu).rgb, 1.0);
+	v = smoothstep(1.0, 0.0, v);
+	out_color = vec4(vec3(1.0), v * 0.1);
+*/
+
+	// sphere fake
+	
+	vec3 n = vec3(uv, dot(uv, uv));
+	if(n.z > 1.0)
+		discard;
+
+	n.z = sqrt(1.0 - n.z);
+	float l = dot(vec3(0.0, 0.0, 1.0), n);
+
+	out_color = vec4(l * g_color.xyz, 1.0);
+	
 }

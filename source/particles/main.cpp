@@ -37,6 +37,18 @@ void resizeCallback(GLFWwindow * /*window*/, int width, int height)
 // http://www.glfw.org/docs/latest/group__input.html#ga7e496507126f35ea72f01b2e6ef6d155
 void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action, int /*mods*/)
 {
+
+    switch (key)
+    {
+    case GLFW_KEY_LEFT:
+        example.rotate(example.angle() + 0.02f);
+        break;
+
+    case GLFW_KEY_RIGHT:
+        example.rotate(example.angle() - 0.02f);
+        break;
+    }
+
     if (action != GLFW_RELEASE)
         return;
 
@@ -44,6 +56,10 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
     {
     case GLFW_KEY_F5:
         example.loadShaders();
+        break;
+
+    case GLFW_KEY_SPACE:
+        example.pause();
         break;
     }
 }
@@ -91,6 +107,9 @@ int main(int /*argc*/, char ** /*argv*/)
 
     std::cout << "Key Binding: " << std::endl
         << "  [F5] reload shaders" << std::endl
+        << "  [Space] pause processing (toggle)" << std::endl
+        << "  [Left] rotate left" << std::endl
+        << "  [Right] rotate right" << std::endl
         << std::endl;
 
     glfwMakeContextCurrent(window);
