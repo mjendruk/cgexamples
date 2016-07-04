@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 
-#include <xmmintrin.h>
+#include <immintrin.h>
 
 #pragma warning(push)
 #pragma warning(disable : 4201)
@@ -57,7 +57,7 @@ void Particles::initialize()
     glGenVertexArrays(static_cast<GLsizei>(m_vaos.size()), m_vaos.data());
 
     glBindVertexArray(m_vaos[0]);
-    
+
     //glEnableVertexAttribArray(0);
     //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
     //glBufferData(GL_ARRAY_BUFFER, sizeof(float) * sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -65,13 +65,13 @@ void Particles::initialize()
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
 
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
 
     glBindVertexArray(0);
 
@@ -195,12 +195,12 @@ void Particles::rotate(const float angle)
 
 void Particles::spawn(const std::uint32_t index)
 {
-    const auto r = glm::sphericalRand(1.f);
+    const auto r = glm::vec4(glm::sphericalRand(1.f), 0.0f);
     const auto e = 0.01f * std::chrono::time_point_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 
-    m_velocities[index] = r * glm::linearRand(0.f, 1.f) + glm::vec3(sin(e * 0.545545), 3.f + 2.f * sin(e * 0.618709f), sin(0.121031f * e));
-    m_positions[index] = glm::ballRand(0.02f) + glm::vec3(0.f, 0.5f, 0.f);
+    m_velocities[index] = r * glm::linearRand(0.f, 1.f) + glm::vec4(sin(e * 0.545545), 3.f + 2.f * sin(e * 0.618709f), sin(0.121031f * e), 0.0f);
+    m_positions[index] = glm::vec4(glm::ballRand(0.02f), 0.0f) + glm::vec4(0.f, 0.5f, 0.f, 0.0f);
 }
 
 void Particles::prepare()
@@ -219,44 +219,67 @@ void Particles::process()
     static const auto gravity = glm::vec3(0.0, -9.80665f, 0.0); // m/s²;
     static const auto friction = 0.33f;
 
+    static const __m128 sse_gravity = _mm_set_ps(0.0, gravity.z, gravity.y, gravity.x);
+    static const __m128 sse_friction = _mm_set1_ps(friction);
+    static const __m128 sse_one_minus_friction = _mm_set1_ps(1.0f - friction);
+    static const __m128 sse_05 = _mm_set1_ps(0.5f);
+
     const auto t0 = m_time;
     m_time = std::chrono::high_resolution_clock::now();
-    
+
     if (m_paused)
         return;
 
     const auto elapsed = static_cast<float>(secs(m_time - t0).count());
     const auto elapsed2 = elapsed * elapsed;
 
-    std::cout << elapsed << std::endl;
-
-    __m128 sse_gravity = _mm_set_ps(gravity.x, gravity.y, gravity.z, 0.0f);
-    __m128 sse_friction = _mm_set1_ps(friction);
-
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        __m128 sse_position = _mm_set_ps(m_positions[i].x, m_positions[i].y, m_positions[i].z, 0.0f);
-        __m128 sse_velocity = _mm_set_ps(m_velocities[i].x, m_velocities[i].y, m_velocities[i].z, 0.0f);
+        // SSE
+
+        //__m128 sse_position = _mm_set_ps(m_positions[i].x, m_positions[i].y, m_positions[i].z, m_positions[i].w);
+        //__m128 sse_velocity = _mm_set_ps(m_velocities[i].x, m_velocities[i].y, m_velocities[i].z, m_velocities[i].w);
+        __m128 sse_position = _mm_load_ps(reinterpret_cast<float*>(&m_positions[i]));
+        __m128 sse_velocity = _mm_load_ps(reinterpret_cast<float*>(&m_velocities[i]));
+
         __m128 sse_elapsed = _mm_set1_ps(elapsed);
         __m128 sse_elapsed2 = _mm_set1_ps(elapsed2);
         __m128 sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
-        __m128 sse_05 = _mm_set1_ps(0.5f);
 
         __m128 next_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
         __m128 next_velocity = _mm_add_ps(sse_velocity, _mm_mul_ps(sse_f, sse_elapsed));
+        float length2 = _mm_cvtss_f32(_mm_dp_ps(next_velocity, next_velocity, 0xFF));
 
-        m_positions[i].x = reinterpret_cast<float*>(&next_position)[3];
+        if (reinterpret_cast<float*>(&next_position)[1] < 0.0f)
+        {
+            next_velocity = _mm_mul_ps(next_velocity, sse_one_minus_friction);
+
+            reinterpret_cast<float*>(&next_position)[1] *= -1.0f;
+            reinterpret_cast<float*>(&next_velocity)[1] *= -1.0f;
+        }
+
+        _mm_store_ps(reinterpret_cast<float*>(&m_positions[i]), next_position);
+        _mm_store_ps(reinterpret_cast<float*>(&m_velocities[i]), next_velocity);
+
+        /*m_positions[i].x = reinterpret_cast<float*>(&next_position)[3];
         m_positions[i].y = reinterpret_cast<float*>(&next_position)[2];
         m_positions[i].z = reinterpret_cast<float*>(&next_position)[1];
+        m_positions[i].w = reinterpret_cast<float*>(&next_position)[0];
 
         m_velocities[i].x = reinterpret_cast<float*>(&next_velocity)[3];
         m_velocities[i].y = reinterpret_cast<float*>(&next_velocity)[2];
         m_velocities[i].z = reinterpret_cast<float*>(&next_velocity)[1];
+        m_velocities[i].w = reinterpret_cast<float*>(&next_velocity)[0];*/
+
+        if (length2 < 2.5e-07f)
+            spawn(i);
+
+        // normal
 
         /*const auto f = gravity - m_velocities[i] * friction;
         m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
-        m_velocities[i] = m_velocities[i] + (f * elapsed);*/
+        m_velocities[i] = m_velocities[i] + (f * elapsed);
 
         if (m_positions[i].y >= 0.f)
             continue;
@@ -265,12 +288,9 @@ void Particles::process()
         m_velocities[i].y *= -1.f;
 
         m_velocities[i] *= (1.0 - friction);
-    }
 
-    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
-    {
         if (glm::length(m_velocities[i]) < 0.0005f)
-            spawn(i);
+            spawn(i);*/
     }
 }
 
@@ -317,7 +337,7 @@ void Particles::render()
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //glBindVertexArray(m_vaos[0]);
-    //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);    
+    //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     //glBindVertexArray(0);
 
     //glUseProgram(0);
@@ -356,9 +376,9 @@ void Particles::render()
     // draw v3
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_positions.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
     //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_velocities.data(), GL_STATIC_DRAW);
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
@@ -370,7 +390,7 @@ void Particles::render()
 
     //auto T = glm::scale(m_transform, glm::vec3(0.01f));
     glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
-    
+
     glDrawArrays(GL_POINTS, 0, m_num);
     process();
 
