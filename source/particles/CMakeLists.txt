@@ -40,6 +40,8 @@ set(sources
 
     particles.cpp
     particles.h
+    allocator.h
+    allocator.inl
     ${data}/particles.frag
     ${data}/particles.vert
 )
@@ -119,6 +121,7 @@ target_compile_options(${target}
     PRIVATE
     $<$<BOOL:"${OPENMP_FOUND}">:${OpenMP_CXX_FLAGS}>
     ${DEFAULT_COMPILE_OPTIONS}
+    #-msse4.1
 )
 
 

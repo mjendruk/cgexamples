@@ -5,6 +5,8 @@
 #include <array>
 #include <vector>
 
+#include "allocator.h"
+
 #pragma warning(push)
 #pragma warning(disable : 4201)
 #include <glm/vec3.hpp>
@@ -54,10 +56,10 @@ protected:
     //std::array<gl::GLuint, 1> m_textures;
     std::array<gl::GLuint, 3> m_uniformLocations;
 
-    std::vector<glm::vec3> m_positions;
-    std::vector<glm::vec3> m_velocities;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4, 16>> m_positions;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4, 16>> m_velocities;
 
-    std::uint32_t m_num;
+    std::int32_t m_num;
     bool m_paused;
     float m_angle;
 
