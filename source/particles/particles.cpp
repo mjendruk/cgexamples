@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string>
 
+#include <xmmintrin.h>
+
 #pragma warning(push)
 #pragma warning(disable : 4201)
 #include <glm/gtc/type_ptr.hpp>
@@ -224,14 +226,37 @@ void Particles::process()
         return;
 
     const auto elapsed = static_cast<float>(secs(m_time - t0).count());
+    const auto elapsed2 = elapsed * elapsed;
+
+    std::cout << elapsed << std::endl;
+
+    __m128 sse_gravity = _mm_set_ps(gravity.x, gravity.y, gravity.z, 0.0f);
+    __m128 sse_friction = _mm_set1_ps(friction);
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        const auto f = gravity - (m_velocities[i] * friction);
+        __m128 sse_position = _mm_set_ps(m_positions[i].x, m_positions[i].y, m_positions[i].z, 0.0f);
+        __m128 sse_velocity = _mm_set_ps(m_velocities[i].x, m_velocities[i].y, m_velocities[i].z, 0.0f);
+        __m128 sse_elapsed = _mm_set1_ps(elapsed);
+        __m128 sse_elapsed2 = _mm_set1_ps(elapsed2);
+        __m128 sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
+        __m128 sse_05 = _mm_set1_ps(0.5f);
 
-        m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed * elapsed);
-        m_velocities[i] = m_velocities[i] + (f * elapsed);
+        __m128 next_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
+        __m128 next_velocity = _mm_add_ps(sse_velocity, _mm_mul_ps(sse_f, sse_elapsed));
+
+        m_positions[i].x = reinterpret_cast<float*>(&next_position)[3];
+        m_positions[i].y = reinterpret_cast<float*>(&next_position)[2];
+        m_positions[i].z = reinterpret_cast<float*>(&next_position)[1];
+
+        m_velocities[i].x = reinterpret_cast<float*>(&next_velocity)[3];
+        m_velocities[i].y = reinterpret_cast<float*>(&next_velocity)[2];
+        m_velocities[i].z = reinterpret_cast<float*>(&next_velocity)[1];
+
+        /*const auto f = gravity - m_velocities[i] * friction;
+        m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
+        m_velocities[i] = m_velocities[i] + (f * elapsed);*/
 
         if (m_positions[i].y >= 0.f)
             continue;
@@ -330,7 +355,6 @@ void Particles::render()
 
     // draw v3
     process();
-
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * m_num, m_positions.data(), GL_STATIC_DRAW);
