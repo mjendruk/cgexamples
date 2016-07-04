@@ -22,6 +22,17 @@
 using namespace gl32core;
 
 
+namespace
+{
+
+
+static const auto gravity = glm::vec4(0.0f, -9.80665f, 0.0f, 0.0f); // m/s^2;
+static const auto friction = 0.33f;
+
+
+}
+
+
 Particles::Particles()
 : m_num(250000)
 , m_paused(false)
@@ -219,15 +230,47 @@ void Particles::prepare()
 
 void Particles::process()
 {
-    static const auto gravity = glm::vec4(0.0f, -9.80665f, 0.0f, 0.0f); // m/s²;
-    static const auto friction = 0.33f;
+    const auto t0 = m_time;
+    m_time = std::chrono::high_resolution_clock::now();
 
-    static const __m128 sse_gravity = _mm_load_ps(reinterpret_cast<const float*>(&gravity));
-    static const __m128 sse_friction = _mm_set_ps(0.0f, friction, friction, friction);
-    static const __m128 sse_one_minus_friction = _mm_set_ps(0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction);
-    static const __m128 sse_05 = _mm_set_ps(0.0f, 0.5f, 0.5f, 0.5f);
-    static const __m128 sse_yminus1 = _mm_set_ps(0.0f, 1.0f, -1.0f, 1.0f);
-    static const __m128 sse_one_minus_friction_yminus1 = _mm_mul_ps(sse_one_minus_friction, sse_yminus1);
+    if (m_paused)
+        return;
+
+    const auto elapsed = static_cast<float>(secs(m_time - t0).count());
+    const auto elapsed2 = elapsed * elapsed;
+
+    #pragma omp parallel for
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    {
+        const auto f = gravity - m_velocities[i] * friction;
+        m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
+        m_velocities[i] = m_velocities[i] + (f * elapsed);
+
+        if (m_positions[i].y >= 0.f)
+            continue;
+
+        m_positions[i].y *= -1.f;
+        m_velocities[i].y *= -1.f;
+
+        m_velocities[i] *= (1.0 - friction);
+    }
+
+    #pragma omp parallel for
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    {
+        if (glm::length(m_velocities[i]) < 0.01f)
+            spawn(i);
+    }
+}
+
+void Particles::processSSE()
+{
+    static const auto sse_gravity = _mm_load_ps(reinterpret_cast<const float*>(&gravity));
+    static const auto sse_friction = _mm_set_ps(0.0f, friction, friction, friction);
+    static const auto sse_one_minus_friction = _mm_set_ps(0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction);
+    static const auto sse_05 = _mm_set_ps(0.0f, 0.5f, 0.5f, 0.5f);
+    static const auto sse_yminus1 = _mm_set_ps(0.0f, 1.0f, -1.0f, 1.0f);
+    static const auto sse_one_minus_friction_yminus1 = _mm_mul_ps(sse_one_minus_friction, sse_yminus1);
 
     const auto t0 = m_time;
     m_time = std::chrono::high_resolution_clock::now();
@@ -236,18 +279,16 @@ void Particles::process()
         return;
 
     const auto elapsed = static_cast<float>(secs(m_time - t0).count());
-    const __m128 sse_elapsed = _mm_set_ps(0.0f, elapsed, elapsed, elapsed);
-    const __m128 sse_elapsed2 = _mm_mul_ps(sse_elapsed, sse_elapsed);
+    const auto sse_elapsed = _mm_set_ps(0.0f, elapsed, elapsed, elapsed);
+    const auto sse_elapsed2 = _mm_mul_ps(sse_elapsed, sse_elapsed);
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        // SSE
+        auto sse_position = _mm_load_ps(glm::value_ptr(m_positions[i]));
+        auto sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
 
-        __m128 sse_position = _mm_load_ps(glm::value_ptr(m_positions[i]));
-        __m128 sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
-
-        const __m128 sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
+        const auto sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
 
         sse_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
         sse_velocity = _mm_add_ps(_mm_mul_ps(sse_f, sse_elapsed), sse_velocity);
@@ -260,38 +301,78 @@ void Particles::process()
 
         _mm_store_ps(glm::value_ptr(m_positions[i]), sse_position);
         _mm_store_ps(glm::value_ptr(m_velocities[i]), sse_velocity);
-
-        // normal
-
-        //const auto f = gravity - m_velocities[i] * friction;
-        //m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
-        //m_velocities[i] = m_velocities[i] + (f * elapsed);
-        /*
-        if (m_positions[i].y >= 0.f)
-            continue;
-
-        m_positions[i].y *= -1.f;
-        m_velocities[i].y *= -1.f;
-
-        m_velocities[i] *= (1.0 - friction);*/
     }
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        // SSE
+        const auto sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
 
-        __m128 sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
+        const auto length2 = _mm_dp_ps(sse_velocity, sse_velocity, 0x71);
 
-        const auto length2 = _mm_cvtss_f32(_mm_dp_ps(sse_velocity, sse_velocity, 0x71));
-
-        if (length2 < 2.5e-07f)
+        if (reinterpret_cast<const float*>(&length2)[0] < 2.5e-07f)
             spawn(i);
+    }
+}
 
-        // normal
+void Particles::processAVX()
+{
+    static const auto avx_gravity = _mm256_set_ps(gravity.w, gravity.z, gravity.y, gravity.x, gravity.w, gravity.z, gravity.y, gravity.x);
+    static const auto avx_friction = _mm256_set_ps(0.0f, friction, friction, friction, 0.0f, friction, friction, friction);
+    static const auto avx_one_minus_friction = _mm256_set_ps(0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction, 0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction);
+    static const auto avx_05 = _mm256_set_ps(0.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f);
+    static const auto avx_1 = _mm256_set_ps(0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+    static const auto avx_yminus1 = _mm256_set_ps(0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
+    static const auto avx_one_minus_friction_yminus1 = _mm256_mul_ps(avx_one_minus_friction, avx_yminus1);
 
-        //if (glm::length(m_velocities[i]) < 0.01f)
-        //    spawn(i);
+    const auto t0 = m_time;
+    m_time = std::chrono::high_resolution_clock::now();
+
+    if (m_paused)
+        return;
+
+    const auto elapsed = static_cast<float>(secs(m_time - t0).count());
+    const auto avx_elapsed = _mm256_set_ps(0.0f, elapsed, elapsed, elapsed, 0.0f, elapsed, elapsed, elapsed);
+    const auto avx_elapsed2 = _mm256_mul_ps(avx_elapsed, avx_elapsed);
+
+    #pragma omp parallel for
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num)/2; ++i)
+    {
+        auto avx_position = _mm256_load_ps(glm::value_ptr(m_positions[2*i]));
+        auto avx_velocity = _mm256_load_ps(glm::value_ptr(m_velocities[2*i]));
+
+        const auto avx_f = _mm256_sub_ps(avx_gravity, _mm256_mul_ps(avx_velocity, avx_friction));
+
+        avx_position = _mm256_add_ps(avx_position, _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_mul_ps(avx_05, _mm256_mul_ps(avx_f, avx_elapsed2))));
+        avx_velocity = _mm256_add_ps(_mm256_mul_ps(avx_f, avx_elapsed), avx_velocity);
+
+        const auto avx_compare = _mm256_cmp_ps(avx_position, _mm256_set1_ps(0.0f), 1);
+
+        const auto mask = 0;//reinterpret_cast<const float*>(&avx_compare)[1] * 15 + reinterpret_cast<const float*>(&avx_compare)[5] * 240;
+
+        avx_position = _mm256_mul_ps(avx_position, _mm256_blend_ps(avx_1, avx_yminus1, mask));
+        avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blend_ps(avx_1, avx_one_minus_friction_yminus1, mask));
+
+        _mm256_store_ps(glm::value_ptr(m_positions[2*i]), avx_position);
+        _mm256_store_ps(glm::value_ptr(m_velocities[2*i]), avx_velocity);
+    }
+
+    #pragma omp parallel for
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    {
+        const auto avx_velocity = _mm256_load_ps(glm::value_ptr(m_velocities[2*i]));
+
+        const auto length2 = _mm256_dp_ps(avx_velocity, avx_velocity, 0x71);
+
+        if (reinterpret_cast<const float*>(&length2)[0] < 2.5e-07f)
+        {
+            spawn(2*i);
+        }
+
+        if (reinterpret_cast<const float*>(&length2)[4] < 2.5e-07f)
+        {
+            spawn(2*i+1);
+        }
     }
 }
 

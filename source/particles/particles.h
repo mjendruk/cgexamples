@@ -41,6 +41,8 @@ protected:
 
     void prepare();
     void process();
+    void processSSE();
+    void processAVX();
     void spawn(std::uint32_t index);
 
 protected:
@@ -56,8 +58,8 @@ protected:
     //std::array<gl::GLuint, 1> m_textures;
     std::array<gl::GLuint, 3> m_uniformLocations;
 
-    std::vector<glm::vec4, aligned_allocator<glm::vec4>> m_positions;
-    std::vector<glm::vec4, aligned_allocator<glm::vec4>> m_velocities;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4, 2 * sizeof(glm::vec4)>> m_positions;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4, 2 * sizeof(glm::vec4)>> m_velocities;
 
     std::int32_t m_num;
     bool m_paused;
