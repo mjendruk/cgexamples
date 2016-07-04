@@ -28,5 +28,6 @@ void main()
 	float l = dot(vec3(0.0, 0.0, 1.0), n);
 
 	out_color = vec4(l * g_color.xyz, 1.0);
+	//out_color = vec4(vec3(l), 0.3);
 	
 }

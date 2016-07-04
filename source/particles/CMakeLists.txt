@@ -121,7 +121,7 @@ target_compile_options(${target}
     PRIVATE
     $<$<BOOL:"${OPENMP_FOUND}">:${OpenMP_CXX_FLAGS}>
     ${DEFAULT_COMPILE_OPTIONS}
-    -msse4.1
+    #-msse4.1
 )
 
 

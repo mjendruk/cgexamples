@@ -24,7 +24,7 @@ using namespace gl32core;
 
 Particles::Particles()
 : m_time(std::chrono::high_resolution_clock::now())
-, m_num(250000)
+, m_num(1000000)
 , m_paused(false)
 {
 }
@@ -209,7 +209,7 @@ void Particles::prepare()
     m_velocities.resize(m_num);
 
     #pragma omp parallel for
-    for (auto i = 0u; i < m_num; ++i)
+    for (auto i = 0; i < m_num; ++i)
         spawn(i);
 
     m_time = std::chrono::high_resolution_clock::now();
@@ -235,6 +235,11 @@ void Particles::process()
     const auto elapsed2 = elapsed * elapsed;
     const __m128 sse_elapsed = _mm_set1_ps(elapsed);
     const __m128 sse_elapsed2 = _mm_set1_ps(elapsed2);
+
+    //std::cout << elapsed << std::endl;
+
+    /*__m128 sse_gravity = _mm_set_ps(gravity.x, gravity.y, gravity.z, 0.0f);
+    __m128 sse_friction = _mm_set1_ps(friction);*/
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
@@ -266,21 +271,26 @@ void Particles::process()
 
         // normal
 
-        /*const auto f = gravity - m_velocities[i] * friction;
-        m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
-        m_velocities[i] = m_velocities[i] + (f * elapsed);
-
+        //const auto f = gravity - m_velocities[i] * friction;
+        //m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
+        //m_velocities[i] = m_velocities[i] + (f * elapsed);
+        /*
         if (m_positions[i].y >= 0.f)
             continue;
 
         m_positions[i].y *= -1.f;
         m_velocities[i].y *= -1.f;
 
-        m_velocities[i] *= (1.0 - friction);
-
-        if (glm::length(m_velocities[i]) < 0.0005f)
-            spawn(i);*/
+        m_velocities[i] *= (1.0 - friction);*/
     }
+
+    /*
+    #pragma omp parallel for
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    {
+        if (glm::length(m_velocities[i]) < 0.01f)
+            spawn(i);
+    }*/
 }
 
 void Particles::render()
@@ -365,6 +375,7 @@ void Particles::render()
     // draw v3
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
     //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
     //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);

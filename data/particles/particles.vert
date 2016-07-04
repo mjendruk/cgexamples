@@ -14,10 +14,10 @@ out vec3 v_color;
 void main()
 {
     //gl_Position = transform * vec4(in_vertex, 0.0, 1.0);
-    v_scale = 0.02;
+    v_scale = 0.004;
 
     gl_Position = transform * vec4(in_vertex, 1.0);
    // v_uv = in_vertex.xy;
    //v_color = mix(in_vertex * 0.5 + 0.5, vec3(.5), length(in_velocity));
-   v_color = in_vertex * 0.5 + 0.5;
+   v_color = (in_vertex * 0.5 + 0.5);
 }

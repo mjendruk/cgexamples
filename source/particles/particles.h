@@ -59,7 +59,7 @@ protected:
     std::vector<glm::vec4, aligned_allocator<glm::vec4, sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, sizeof(glm::vec4)>> m_velocities;
 
-    std::uint32_t m_num;
+    std::int32_t m_num;
     bool m_paused;
     float m_angle;
 
