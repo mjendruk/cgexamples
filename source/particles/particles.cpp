@@ -34,7 +34,7 @@ static const auto friction = 0.33f;
 
 
 Particles::Particles()
-: m_num(250000)
+: m_num(100000)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
 {
@@ -213,7 +213,7 @@ void Particles::spawn(const std::uint32_t index)
         std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 
     m_velocities[index] = r * glm::linearRand(0.f, 1.f) + glm::vec4(sin(0.121031f * e), 3.f + 2.f * sin(e * 0.618709f), sin(e * 0.545545), 0.0f);
-    m_positions[index] = glm::vec4(glm::ballRand(0.02f), 0.0f) + glm::vec4(0.0f, 0.5f, 0.0f, 0.f);
+    m_positions[index] = glm::vec4(glm::ballRand(0.02f), 0.0f) + glm::vec4(0.0f, 0.1f, 0.0f, 0.f);
 }
 
 void Particles::prepare()
@@ -375,7 +375,7 @@ void Particles::processAVX()
     }
 
     #pragma omp parallel for
-    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num) / 2; ++i)
     {
         const auto avx_velocity = _mm256_load_ps(glm::value_ptr(m_velocities[2*i]));
 
