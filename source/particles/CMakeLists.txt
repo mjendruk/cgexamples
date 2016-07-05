@@ -105,7 +105,8 @@ target_link_libraries(${target}
 
 target_compile_definitions(${target}
     PRIVATE
-    $<$<BOOL:"${OPENMP_FOUND}">:USE_OPENMP>
+    $<$<BOOL:${OPENMP_FOUND}>:USE_OPENMP>
+    $<$<BOOL:${OPTION_USE_AVX2}>:BUILD_WITH_AVX2>
     ${DEFAULT_COMPILE_DEFINITIONS}
     PUBLIC
     GLFW_INCLUDE_NONE
@@ -119,9 +120,12 @@ target_compile_definitions(${target}
 
 target_compile_options(${target}
     PRIVATE
-    $<$<BOOL:"${OPENMP_FOUND}">:${OpenMP_CXX_FLAGS}>
+    $<$<BOOL:${OPENMP_FOUND}>:${OpenMP_CXX_FLAGS}>
     ${DEFAULT_COMPILE_OPTIONS}
-    $<$<CXX_COMPILER_ID:GNU>:-msse4.1 -mavx2>
+    $<$<CXX_COMPILER_ID:GNU>:
+        -msse4.1
+        $<$<BOOL:${OPTION_USE_AVX2}>:-mavx2>
+    >
 )
 
 

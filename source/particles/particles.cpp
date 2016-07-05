@@ -317,6 +317,7 @@ void Particles::processSSE()
 
 void Particles::processAVX()
 {
+#ifdef BUILD_WITH_AVX2
     static const auto avx_gravity = _mm256_set_ps(gravity.w, gravity.z, gravity.y, gravity.x, gravity.w, gravity.z, gravity.y, gravity.x);
     static const auto avx_friction = _mm256_set_ps(0.0f, friction, friction, friction, 0.0f, friction, friction, friction);
     static const auto avx_one_minus_friction = _mm256_set_ps(0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction, 0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction);
@@ -348,10 +349,26 @@ void Particles::processAVX()
 
         const auto avx_compare = _mm256_cmp_ps(avx_position, _mm256_set1_ps(0.0f), 1);
 
-        const auto mask = 0;//reinterpret_cast<const float*>(&avx_compare)[1] * 15 + reinterpret_cast<const float*>(&avx_compare)[5] * 240;
-
-        avx_position = _mm256_mul_ps(avx_position, _mm256_blend_ps(avx_1, avx_yminus1, mask));
-        avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blend_ps(avx_1, avx_one_minus_friction_yminus1, mask));
+        if (reinterpret_cast<const float*>(&avx_compare)[1] && reinterpret_cast<const float*>(&avx_compare)[5])
+        {
+            avx_position = _mm256_mul_ps(avx_position, _mm256_blend_ps(avx_1, avx_yminus1, 0xFF));
+            avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blend_ps(avx_1, avx_one_minus_friction_yminus1, 0xFF));
+        }
+        else if (reinterpret_cast<const float*>(&avx_compare)[1])
+        {
+            avx_position = _mm256_mul_ps(avx_position, _mm256_blend_ps(avx_1, avx_yminus1, 0x0F));
+            avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blend_ps(avx_1, avx_one_minus_friction_yminus1, 0x0F));
+        }
+        else if (reinterpret_cast<const float*>(&avx_compare)[5])
+        {
+            avx_position = _mm256_mul_ps(avx_position, _mm256_blend_ps(avx_1, avx_yminus1, 0xF0));
+            avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blend_ps(avx_1, avx_one_minus_friction_yminus1, 0xF0));
+        }
+        else
+        {
+            //avx_position = _mm256_mul_ps(avx_position, _mm256_blend_ps(avx_1, avx_yminus1, 0));
+            //avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blend_ps(avx_1, avx_one_minus_friction_yminus1, 0));
+        }
 
         _mm256_store_ps(glm::value_ptr(m_positions[2*i]), avx_position);
         _mm256_store_ps(glm::value_ptr(m_velocities[2*i]), avx_velocity);
@@ -374,6 +391,7 @@ void Particles::processAVX()
             spawn(2*i+1);
         }
     }
+#endif
 }
 
 void Particles::render()
@@ -488,7 +506,7 @@ void Particles::render()
     //glDisable(GL_DEPTH_TEST);
 
 
-    process();
+    processAVX();
 }
 
 
