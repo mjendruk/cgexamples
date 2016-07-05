@@ -35,7 +35,7 @@ void resizeCallback(GLFWwindow * /*window*/, int width, int height)
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
 // http://www.glfw.org/docs/latest/group__input.html#ga7e496507126f35ea72f01b2e6ef6d155
-void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action, int /*mods*/)
+void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action, int mods)
 {
 
     switch (key)
@@ -46,6 +46,10 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
 
     case GLFW_KEY_RIGHT:
         example.rotate(example.angle() - 0.02f);
+        break;
+
+    case GLFW_KEY_S:
+        example.setScale(example.scale() + (mods & GLFW_MOD_SHIFT ? 1.f : -1.f));
         break;
     }
 
@@ -60,6 +64,23 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
 
     case GLFW_KEY_SPACE:
         example.pause();
+        break;
+
+    case GLFW_KEY_1:
+        example.setProcessing(Particles::ProcessingMode::CPU);
+        std::cout << "Processing: CPU" << std::endl;
+        break;
+    case GLFW_KEY_2:
+        example.setProcessing(Particles::ProcessingMode::CPU_OMP);
+        std::cout << "Processing: CPU_OMP" << std::endl;
+        break;
+    case GLFW_KEY_3:
+        example.setProcessing(Particles::ProcessingMode::CPU_OMP_SSE41);
+        std::cout << "Processing: CPU_OMP_SSE41" << std::endl;
+        break;
+    case GLFW_KEY_4:
+        example.setProcessing(Particles::ProcessingMode::CPU_OMP_AVX2);
+        std::cout << "Processing: CPU_OMP_AVX2" << std::endl;
         break;
     }
 }
@@ -107,9 +128,13 @@ int main(int /*argc*/, char ** /*argv*/)
 
     std::cout << "Key Binding: " << std::endl
         << "  [F5] reload shaders" << std::endl
+        << "  [1] particle processing: CPU default" << std::endl
+        << "  [2] particle processing: CPU_OMP" << std::endl
+        << "  [3] particle processing: CPU_OMP_SSE41" << std::endl
+        << "  [4] particle processing: CPU_OMP_AVX2" << std::endl
         << "  [Space] pause processing (toggle)" << std::endl
-        << "  [Left] rotate left" << std::endl
-        << "  [Right] rotate right" << std::endl
+        << "  [a/d] rotate left/right" << std::endl
+        << "  [S/s] increase/decrease particle scale" << std::endl
         << std::endl;
 
     glfwMakeContextCurrent(window);

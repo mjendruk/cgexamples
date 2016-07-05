@@ -20,6 +20,15 @@
 class Particles
 {
 public:
+    enum class ProcessingMode
+    {
+        CPU,
+        CPU_OMP,
+        CPU_OMP_SSE41,
+        CPU_OMP_AVX2 
+    };
+
+public:
     Particles();
     ~Particles();
 
@@ -32,7 +41,12 @@ public:
     void execute();
 
     void pause();
+
+    void setProcessing(const ProcessingMode mode);
     
+    float scale();
+    void setScale(float scale);
+
     float angle() const;
     void rotate(float angle);
 
@@ -40,10 +54,15 @@ protected:
     void loadUniformLocations();
 
     void prepare();
-    void process();
-    void processSSE();
-    void processAVX();
     void spawn(std::uint32_t index);
+
+    float elapsed();
+
+    void process();
+    void processOMP();
+    void processSSE41();
+    void processAVX2();
+    
 
 protected:
     std::array<gl::GLuint, 2> m_vbos;
@@ -61,14 +80,20 @@ protected:
     std::vector<glm::vec4, aligned_allocator<glm::vec4, 2 * sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, 2 * sizeof(glm::vec4)>> m_velocities;
 
+
+    ProcessingMode m_mode;
+
     std::int32_t m_num;
+    float m_scale;
+
     bool m_paused;
     float m_angle;
 
     glm::mat4 m_transform;
 
-    using secs = std::chrono::duration<double, std::chrono::seconds::period>;
+    using secs = std::chrono::duration<float, std::chrono::seconds::period>;
     std::chrono::high_resolution_clock::time_point m_time;
+    float m_elapsedSinceEpoch;
 
     int m_width;
     int m_height;

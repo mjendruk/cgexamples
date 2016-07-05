@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <random>
 
 #include <immintrin.h>
 
@@ -27,14 +28,22 @@ namespace
 
 
 static const auto gravity = glm::vec4(0.0f, -9.80665f, 0.0f, 0.0f); // m/s^2;
-static const auto friction = 0.33f;
+static const auto friction = 0.3333f;
+
+#ifdef SYSTEM_DARWIN
+#define thread_local 
+#endif
+thread_local std::random_device rd;
+thread_local auto mt = std::mt19937{ rd() };
+thread_local auto frand = std::uniform_real_distribution<float>{ -1.f, 1.f };
 
 
 }
 
 
 Particles::Particles()
-: m_num(100000)
+: m_num(250000)
+, m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
 {
@@ -59,7 +68,7 @@ Particles::~Particles()
 void Particles::initialize()
 {
     //glClearColor(0.12f, 0.14f, 0.18f, 1.0f);
-    glClearColor(0.f, 0.f, 0.f, 1.0f);
+    glClearColor(1.f, 1.f, 1.f, 1.0f);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -175,8 +184,8 @@ void Particles::loadUniformLocations()
     m_uniformLocations[0] = glGetUniformLocation(m_programs[0], "transform");
     glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
 
-    m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "aspect");
-    glUniform1f(m_uniformLocations[1], static_cast<float>(m_width) / m_height);
+    m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "scale");
+    glUniform2f(m_uniformLocations[1], m_scale / m_width, m_scale / m_height);
 
     glUseProgram(0);
 }
@@ -185,15 +194,27 @@ void Particles::resize(int w, int h)
 {
     m_width = w;
     m_height = h;
-
-    glUseProgram(m_programs[0]);
-    glUniform1f(m_uniformLocations[1], static_cast<float>(m_width) / m_height);
-    glUseProgram(0);
 }
 
 void Particles::pause()
 {
     m_paused = !m_paused;
+    elapsed();
+}
+
+void Particles::setProcessing(const ProcessingMode mode)
+{
+    m_mode = mode;
+}
+
+float Particles::scale()
+{
+    return m_scale;
+}
+
+void Particles::setScale(const float scale)
+{
+    m_scale = glm::clamp(scale, 1.f, 1024.f);
 }
 
 float Particles::angle() const
@@ -208,12 +229,14 @@ void Particles::rotate(const float angle)
 
 void Particles::spawn(const std::uint32_t index)
 {
-    const auto r = glm::vec4(glm::sphericalRand(1.f), 0.0f);
-    const auto e = 0.01f * std::chrono::time_point_cast<std::chrono::milliseconds>(
-        std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+    const auto r = glm::normalize(glm::vec4(frand(rd), frand(rd), frand(rd), 0.0f));
 
-    m_velocities[index] = r * glm::linearRand(0.f, 1.f) + glm::vec4(sin(0.121031f * e), 3.f + 2.f * sin(e * 0.618709f), sin(e * 0.545545), 0.0f);
-    m_positions[index] = glm::vec4(glm::ballRand(0.02f), 0.0f) + glm::vec4(0.0f, 0.1f, 0.0f, 0.f);
+    const auto e = 0.01f * m_elapsedSinceEpoch;
+
+    m_velocities[index] = r * (frand(rd) * 0.5f + 0.5f) + glm::vec4(
+        2.f * sin(0.121031f * e), 4.f + 2.f * sin(e * 0.618709f), 2.f * sin(e * 0.545545f), 0.0f);
+
+    m_positions[index] = r * 0.1f + glm::vec4(0.0f, 0.2f, 0.0f, 1.f);
 }
 
 void Particles::prepare()
@@ -221,68 +244,115 @@ void Particles::prepare()
     m_positions.resize(m_num);
     m_velocities.resize(m_num);
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (auto i = 0; i < m_num; ++i)
         spawn(i);
 
-    m_time = std::chrono::high_resolution_clock::now();
+    elapsed();
 }
 
-void Particles::process()
+float Particles::elapsed()
 {
     const auto t0 = m_time;
     m_time = std::chrono::high_resolution_clock::now();
 
+    m_elapsedSinceEpoch = std::chrono::time_point_cast<std::chrono::milliseconds>(
+          std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+
+    return static_cast<float>(secs(m_time - t0).count());
+}
+
+void Particles::process()
+{
     if (m_paused)
         return;
 
-    const auto elapsed = static_cast<float>(secs(m_time - t0).count());
+    const auto elapsed = this->elapsed();
+    const auto elapsed2 = elapsed * elapsed;
+
+    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    {
+        const auto f = gravity - m_velocities[i] * friction;
+
+        auto & p = m_positions[i];
+        auto & v = m_velocities[i];
+
+        p = p + (v * elapsed) + (0.5f * f * elapsed2);
+        v = v + (f * elapsed);
+
+        if (p.y < 0.f)
+        {
+            p.y *= -1.f;
+            v.y *= -1.f;
+
+            v *= 1.0 - friction;
+        }
+
+        p.w = glm::dot(glm::vec3(v), glm::vec3(v));
+    }
+
+    for (auto i = 0; i < m_num; ++i)
+    {
+        if (m_positions[i].w < 0.01f)
+            spawn(i);
+    }
+}
+
+void Particles::processOMP()
+{
+    if (m_paused)
+        return;
+
+    const auto elapsed = this->elapsed();
     const auto elapsed2 = elapsed * elapsed;
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
         const auto f = gravity - m_velocities[i] * friction;
-        m_positions[i] = m_positions[i] + (m_velocities[i] * elapsed) + (0.5f * f * elapsed2);
-        m_velocities[i] = m_velocities[i] + (f * elapsed);
 
-        if (m_positions[i].y >= 0.f)
-            continue;
+        auto & p = m_positions[i];
+        auto & v = m_velocities[i];
 
-        m_positions[i].y *= -1.f;
-        m_velocities[i].y *= -1.f;
+        p = p + (v * elapsed) + (0.5f * f * elapsed2);
+        v = v + (f * elapsed);
 
-        m_velocities[i] *= (1.0 - friction);
+        if (p.y < 0.f)
+        {
+            p.y *= -1.f;
+            v.y *= -1.f;
+
+            v *= 1.0 - friction;
+        }
+
+        p.w = glm::dot(glm::vec3(v), glm::vec3(v));
     }
 
     #pragma omp parallel for
-    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+    for (auto i = 0; i < m_num; ++i)
     {
-        if (glm::length(m_velocities[i]) < 0.01f)
+        if (m_positions[i].w < 0.01f)
             spawn(i);
     }
 }
 
-void Particles::processSSE()
+void Particles::processSSE41()
 {
-    static const auto sse_gravity = _mm_load_ps(reinterpret_cast<const float*>(&gravity));
+    static const auto sse_gravity = _mm_load_ps(glm::value_ptr(gravity));
     static const auto sse_friction = _mm_set_ps(0.0f, friction, friction, friction);
     static const auto sse_one_minus_friction = _mm_set_ps(0.0f, 1.0f - friction, 1.0f - friction, 1.0f - friction);
     static const auto sse_05 = _mm_set_ps(0.0f, 0.5f, 0.5f, 0.5f);
     static const auto sse_yminus1 = _mm_set_ps(0.0f, 1.0f, -1.0f, 1.0f);
     static const auto sse_one_minus_friction_yminus1 = _mm_mul_ps(sse_one_minus_friction, sse_yminus1);
 
-    const auto t0 = m_time;
-    m_time = std::chrono::high_resolution_clock::now();
-
     if (m_paused)
         return;
 
-    const auto elapsed = static_cast<float>(secs(m_time - t0).count());
+    const auto elapsed = this->elapsed();
     const auto sse_elapsed = _mm_set_ps(0.0f, elapsed, elapsed, elapsed);
     const auto sse_elapsed2 = _mm_mul_ps(sse_elapsed, sse_elapsed);
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
         auto sse_position = _mm_load_ps(glm::value_ptr(m_positions[i]));
@@ -293,29 +363,29 @@ void Particles::processSSE()
         sse_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
         sse_velocity = _mm_add_ps(_mm_mul_ps(sse_f, sse_elapsed), sse_velocity);
 
-        if (reinterpret_cast<glm::vec4*>(&sse_position)->y < 0.0f)
+        const auto sse_compare = _mm_cmp_ps(sse_position, _mm_set1_ps(0.0f), 1);
+        if (reinterpret_cast<const float*>(&sse_compare)[1])
         {
             sse_position = _mm_mul_ps(sse_position, sse_yminus1);
             sse_velocity = _mm_mul_ps(sse_velocity, sse_one_minus_friction_yminus1);
         }
 
+        const auto sse_velocity_length = _mm_dp_ps(sse_velocity, sse_velocity, 0x78);
+        sse_position = _mm_blend_ps(sse_position, sse_velocity_length, 0x8);
+
         _mm_store_ps(glm::value_ptr(m_positions[i]), sse_position);
         _mm_store_ps(glm::value_ptr(m_velocities[i]), sse_velocity);
     }
 
-    #pragma omp parallel for
-    for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
+   // #pragma omp parallel for
+    for (auto i = 0; i < m_num; ++i)
     {
-        const auto sse_velocity = _mm_load_ps(glm::value_ptr(m_velocities[i]));
-
-        const auto length2 = _mm_dp_ps(sse_velocity, sse_velocity, 0x71);
-
-        if (reinterpret_cast<const float*>(&length2)[0] < 2.5e-07f)
+        if (m_positions[i].w < 0.01f)
             spawn(i);
     }
 }
 
-void Particles::processAVX()
+void Particles::processAVX2()
 {
 #ifdef BUILD_WITH_AVX2
     static const auto avx_gravity = _mm256_set_ps(gravity.w, gravity.z, gravity.y, gravity.x, gravity.w, gravity.z, gravity.y, gravity.x);
@@ -326,17 +396,14 @@ void Particles::processAVX()
     static const auto avx_yminus1 = _mm256_set_ps(0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
     static const auto avx_one_minus_friction_yminus1 = _mm256_mul_ps(avx_one_minus_friction, avx_yminus1);
 
-    const auto t0 = m_time;
-    m_time = std::chrono::high_resolution_clock::now();
-
     if (m_paused)
         return;
 
-    const auto elapsed = static_cast<float>(secs(m_time - t0).count());
+    const auto elapsed = this->elapsed();
     const auto avx_elapsed = _mm256_set_ps(0.0f, elapsed, elapsed, elapsed, 0.0f, elapsed, elapsed, elapsed);
     const auto avx_elapsed2 = _mm256_mul_ps(avx_elapsed, avx_elapsed);
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num)/2; ++i)
     {
         auto avx_position = _mm256_load_ps(glm::value_ptr(m_positions[2*i]));
@@ -374,7 +441,7 @@ void Particles::processAVX()
         _mm256_store_ps(glm::value_ptr(m_velocities[2*i]), avx_velocity);
     }
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num) / 2; ++i)
     {
         const auto avx_velocity = _mm256_load_ps(glm::value_ptr(m_velocities[2*i]));
@@ -407,15 +474,16 @@ void Particles::render()
 
     // setup view
 
-    auto eye = glm::vec3(glm::vec4(0.f, 2.f, 3.f, 0.f) * glm::rotate(glm::mat4(1.f), m_angle, glm::vec3(0.f, 1.f, 0.f)));
+    auto eye = glm::vec3(glm::vec4(0.f, 1.f, 3.f, 0.f) * glm::rotate(glm::mat4(1.f), m_angle, glm::vec3(0.f, 1.f, 0.f)));
     //auto eye = glm::vec3(0.f, 1.f, 2.f);
 
     const auto view = glm::lookAt(eye, glm::vec3(0.f, 0.5f, 0.f), glm::vec3(0.f, 1.f, 0.f));
-    const auto projection = glm::perspective(glm::radians(30.f), static_cast<float>(m_width) / m_height, 0.5f, 8.f);
+    const auto projection = glm::perspective(glm::radians(30.f), static_cast<float>(m_width) / m_height, 0.1f, 8.f);
 
     m_transform = projection * view;
 
     glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
+    glUniform2f(m_uniformLocations[1], m_scale / m_width, m_scale / m_height);
 
 
 
@@ -475,13 +543,19 @@ void Particles::render()
 
     // draw v3
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
 
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
-    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    ////glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
+    ////glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
+    ////glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
+
+    ////glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
+    //glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec3) * m_num, m_positions3.data());
+    ////glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+
+    ////glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
+    ////glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
+    //glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
     //glEnable(GL_DEPTH_TEST);
@@ -495,7 +569,6 @@ void Particles::render()
 
     glDrawArrays(GL_POINTS, 0, m_num);
 
-
     glBindVertexArray(0);
 
     glUseProgram(0);
@@ -505,8 +578,28 @@ void Particles::render()
     //glDisable(GL_BLEND);
     //glDisable(GL_DEPTH_TEST);
 
+    switch (m_mode)
+    {
+    case Particles::ProcessingMode::CPU:
+        process();
+        break;
+    case Particles::ProcessingMode::CPU_OMP:
+        processOMP();
+        break;
+    case Particles::ProcessingMode::CPU_OMP_SSE41:
+        processSSE41();
+        break;
+    case Particles::ProcessingMode::CPU_OMP_AVX2:
+        processAVX2();
+        break;
 
-    processAVX();
+    default:
+        break;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 
