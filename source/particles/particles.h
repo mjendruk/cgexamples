@@ -13,6 +13,12 @@
 #include <glm/mat4x4.hpp>
 #pragma warning(pop)
 
+#ifdef BUILD_WITH_AVX2
+#define SIMD_COUNT 2
+#else
+#define SIMD_COUNT 1
+#endif
+
 
 // For more information on how to write C++ please adhere to: 
 // http://cginternals.github.io/guidelines/cpp/index.html
@@ -77,8 +83,8 @@ protected:
     //std::array<gl::GLuint, 1> m_textures;
     std::array<gl::GLuint, 3> m_uniformLocations;
 
-    std::vector<glm::vec4, aligned_allocator<glm::vec4, 2 * sizeof(glm::vec4)>> m_positions;
-    std::vector<glm::vec4, aligned_allocator<glm::vec4, 2 * sizeof(glm::vec4)>> m_velocities;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
+    std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
 
 
     ProcessingMode m_mode;
