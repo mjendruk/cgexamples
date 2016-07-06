@@ -43,7 +43,7 @@ thread_local auto frand = std::uniform_real_distribution<float>{ -1.f, 1.f };
 
 
 Particles::Particles()
-: m_num(100000)
+: m_num(1000000)
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
@@ -235,7 +235,9 @@ void Particles::spawn(const std::uint32_t index)
     const auto e = 0.01f * m_elapsedSinceEpoch;
 
     m_velocities[index] = r * (frand(rd) * 0.5f + 0.5f) + glm::vec4(
-        2.f * sin(0.121031f * e), 4.f + 2.f * sin(e * 0.618709f), 2.f * sin(e * 0.545545f), 0.0f);
+        2.f * sin(0.121031f * e), 4.f + (frand(rd) + 2.f) * sin(e * 0.618709f), 2.f * sin(e * 0.545545f), 0.0f);
+
+    //m_velocities[index] = r * (frand(rd) * 0.5f + 0.5f) * glm::vec4(2.f, 8.f, 2.f, 0.f);
 
     m_positions[index] = r * 0.1f + glm::vec4(0.0f, 0.2f, 0.0f, 1.f);
 }
