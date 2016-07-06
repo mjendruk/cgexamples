@@ -366,8 +366,7 @@ void Particles::processSSE41()
         sse_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
         sse_velocity = _mm_add_ps(_mm_mul_ps(sse_f, sse_elapsed), sse_velocity);
 
-        auto sse_compare = _mm_cmplt_ps(sse_position, sse_0);
-        sse_compare = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(sse_compare), _MM_SHUFFLE(1, 1, 1, 1)));
+        const auto sse_compare = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(_mm_cmplt_ps(sse_position, sse_0)), _MM_SHUFFLE(1, 1, 1, 1)));
 
         sse_position = _mm_mul_ps(sse_position, _mm_blendv_ps(sse_1, sse_yminus1, sse_compare));
         sse_velocity = _mm_mul_ps(sse_velocity, _mm_blendv_ps(sse_1, sse_one_minus_friction_yminus1, sse_compare));
@@ -417,8 +416,7 @@ void Particles::processAVX2()
         avx_position = _mm256_add_ps(avx_position, _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_mul_ps(avx_05, _mm256_mul_ps(avx_f, avx_elapsed2))));
         avx_velocity = _mm256_add_ps(_mm256_mul_ps(avx_f, avx_elapsed), avx_velocity);
 
-        auto avx_compare = _mm256_cmp_ps(avx_position, avx_0, 1);
-        avx_compare = _mm256_permute_ps(avx_compare, _MM_SHUFFLE(1, 1, 1, 1));
+        const auto avx_compare = _mm256_permute_ps(_mm256_cmp_ps(avx_position, avx_0, 1), _MM_SHUFFLE(1, 1, 1, 1));
 
         avx_position = _mm256_mul_ps(avx_position, _mm256_blendv_ps(avx_1, avx_yminus1, avx_compare));
         avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blendv_ps(avx_1, avx_one_minus_friction_yminus1, avx_compare));
