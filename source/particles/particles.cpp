@@ -43,7 +43,7 @@ thread_local auto frand = std::uniform_real_distribution<float>{ -1.f, 1.f };
 
 
 Particles::Particles()
-: m_num(250000)
+: m_num(100000)
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
@@ -367,7 +367,7 @@ void Particles::processSSE41()
         sse_velocity = _mm_add_ps(_mm_mul_ps(sse_f, sse_elapsed), sse_velocity);
 
         auto sse_compare = _mm_cmplt_ps(sse_position, sse_0);
-        sse_compare = _mm_permute_ps(sse_compare, _MM_SHUFFLE(1, 1, 1, 1));
+        sse_compare = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(sse_compare), _MM_SHUFFLE(1, 1, 1, 1)));
 
         sse_position = _mm_mul_ps(sse_position, _mm_blendv_ps(sse_1, sse_yminus1, sse_compare));
         sse_velocity = _mm_mul_ps(sse_velocity, _mm_blendv_ps(sse_1, sse_one_minus_friction_yminus1, sse_compare));
