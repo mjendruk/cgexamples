@@ -412,10 +412,13 @@ void Particles::processAVX2()
         auto avx_position = _mm256_load_ps(glm::value_ptr(m_positions[2*i]));
         auto avx_velocity = _mm256_load_ps(glm::value_ptr(m_velocities[2*i]));
 
-        const auto avx_f = _mm256_sub_ps(avx_gravity, _mm256_mul_ps(avx_velocity, avx_friction));
+        //const auto avx_f = _mm256_sub_ps(avx_gravity, _mm256_mul_ps(avx_velocity, avx_friction));
+        const auto avx_f = _mm256_fnmadd_ps(avx_velocity, avx_friction, avx_gravity); // FMA4
 
-        avx_position = _mm256_add_ps(avx_position, _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_mul_ps(avx_f, avx_elapsed2_5)));
-        avx_velocity = _mm256_add_ps(_mm256_mul_ps(avx_f, avx_elapsed), avx_velocity);
+        //avx_position = _mm256_add_ps(avx_position, _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_mul_ps(avx_f, avx_elapsed2_5)));
+        avx_position = _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_fmadd_ps(avx_f, avx_elapsed2_5, avx_position)); // FMA4
+        //avx_velocity = _mm256_add_ps(_mm256_mul_ps(avx_f, avx_elapsed), avx_velocity);
+        avx_velocity = _mm256_fmadd_ps(avx_f, avx_elapsed, avx_velocity); // FMA4
 
         const auto avx_compare = _mm256_permute_ps(_mm256_cmp_ps(avx_position, avx_0, 1), _MM_SHUFFLE(1, 1, 1, 1));
 

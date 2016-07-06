@@ -124,7 +124,7 @@ target_compile_options(${target}
     ${DEFAULT_COMPILE_OPTIONS}
     $<$<CXX_COMPILER_ID:GNU>:
         -msse4.1
-        $<$<BOOL:${OPTION_USE_AVX2}>:-mavx2>
+        $<$<BOOL:${OPTION_USE_AVX2}>:-mavx2 -mfma>
     >
     $<$<CXX_COMPILER_ID:MSVC>:
         $<$<BOOL:${OPTION_USE_AVX2}>:/arch:AVX2>
