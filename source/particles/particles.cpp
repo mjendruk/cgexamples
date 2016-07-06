@@ -354,6 +354,7 @@ void Particles::processSSE41()
     const auto elapsed = this->elapsed();
     const auto sse_elapsed = _mm_set_ps(0.0f, elapsed, elapsed, elapsed);
     const auto sse_elapsed2 = _mm_mul_ps(sse_elapsed, sse_elapsed);
+    const auto sse_elapsed2_5 = _mm_mul_ps(sse_05, sse_elapsed2);
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
@@ -363,7 +364,7 @@ void Particles::processSSE41()
 
         const auto sse_f = _mm_sub_ps(sse_gravity, _mm_mul_ps(sse_velocity, sse_friction));
 
-        sse_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_05, _mm_mul_ps(sse_f, sse_elapsed2))));
+        sse_position = _mm_add_ps(sse_position, _mm_add_ps(_mm_mul_ps(sse_velocity, sse_elapsed), _mm_mul_ps(sse_f, sse_elapsed2_5)));
         sse_velocity = _mm_add_ps(_mm_mul_ps(sse_f, sse_elapsed), sse_velocity);
 
         const auto sse_compare = _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(_mm_cmplt_ps(sse_position, sse_0)), _MM_SHUFFLE(1, 1, 1, 1)));
@@ -371,8 +372,7 @@ void Particles::processSSE41()
         sse_position = _mm_mul_ps(sse_position, _mm_blendv_ps(sse_1, sse_yminus1, sse_compare));
         sse_velocity = _mm_mul_ps(sse_velocity, _mm_blendv_ps(sse_1, sse_one_minus_friction_yminus1, sse_compare));
 
-        const auto sse_velocity_length = _mm_dp_ps(sse_velocity, sse_velocity, 0x78);
-        sse_position = _mm_blend_ps(sse_position, sse_velocity_length, 0x8);
+        sse_position = _mm_blend_ps(sse_position, _mm_dp_ps(sse_velocity, sse_velocity, 0x78), 0x8);
 
         _mm_store_ps(glm::value_ptr(m_positions[i]), sse_position);
         _mm_store_ps(glm::value_ptr(m_velocities[i]), sse_velocity);
@@ -404,6 +404,7 @@ void Particles::processAVX2()
     const auto elapsed = this->elapsed();
     const auto avx_elapsed = _mm256_set_ps(0.0f, elapsed, elapsed, elapsed, 0.0f, elapsed, elapsed, elapsed);
     const auto avx_elapsed2 = _mm256_mul_ps(avx_elapsed, avx_elapsed);
+    const auto avx_elapsed2_5 = _mm256_mul_ps(avx_05, avx_elapsed2);
 
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num)/2; ++i)
@@ -413,7 +414,7 @@ void Particles::processAVX2()
 
         const auto avx_f = _mm256_sub_ps(avx_gravity, _mm256_mul_ps(avx_velocity, avx_friction));
 
-        avx_position = _mm256_add_ps(avx_position, _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_mul_ps(avx_05, _mm256_mul_ps(avx_f, avx_elapsed2))));
+        avx_position = _mm256_add_ps(avx_position, _mm256_add_ps(_mm256_mul_ps(avx_velocity, avx_elapsed), _mm256_mul_ps(avx_f, avx_elapsed2_5)));
         avx_velocity = _mm256_add_ps(_mm256_mul_ps(avx_f, avx_elapsed), avx_velocity);
 
         const auto avx_compare = _mm256_permute_ps(_mm256_cmp_ps(avx_position, avx_0, 1), _MM_SHUFFLE(1, 1, 1, 1));
@@ -421,8 +422,7 @@ void Particles::processAVX2()
         avx_position = _mm256_mul_ps(avx_position, _mm256_blendv_ps(avx_1, avx_yminus1, avx_compare));
         avx_velocity = _mm256_mul_ps(avx_velocity, _mm256_blendv_ps(avx_1, avx_one_minus_friction_yminus1, avx_compare));
 
-        const auto avx_velocity_length = _mm256_dp_ps(avx_velocity, avx_velocity, 0x78);
-        avx_position = _mm256_blend_ps(avx_position, avx_velocity_length, 0x88);
+        avx_position = _mm256_blend_ps(avx_position, _mm256_dp_ps(avx_velocity, avx_velocity, 0x78), 0x88);
 
         _mm256_store_ps(glm::value_ptr(m_positions[2*i]), avx_position);
         _mm256_store_ps(glm::value_ptr(m_velocities[2*i]), avx_velocity);
