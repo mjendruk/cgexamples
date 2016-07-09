@@ -16,6 +16,7 @@
 #pragma warning(pop)
 
 #include <glbinding/gl32ext/gl.h>
+#include <glbinding/ContextInfo.h>
 
 #include <cgutils/common.h>
 
@@ -43,10 +44,12 @@ thread_local auto frand = std::uniform_real_distribution<float>{ -1.f, 1.f };
 
 
 Particles::Particles()
-: m_num(100000)
+: m_num(10000)
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
+, m_bufferStorageAvaiable(false)
+, m_bufferPointer(nullptr)
 {
 }
 
@@ -68,6 +71,9 @@ Particles::~Particles()
 
 void Particles::initialize()
 {
+    m_bufferStorageAvaiable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_buffer_storage });
+    //m_bufferStorageAvaiable = false;
+
     //glClearColor(0.12f, 0.14f, 0.18f, 1.0f);
     glClearColor(1.f, 1.f, 1.f, 1.0f);
 
@@ -88,7 +94,16 @@ void Particles::initialize()
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STREAM_DRAW);
+
+    if (m_bufferStorageAvaiable)
+    {
+        glBufferStorage(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, nullptr, gl32ext::GL_DYNAMIC_STORAGE_BIT | gl::GL_MAP_WRITE_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
+        m_bufferPointer = gl::glMapBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, gl::GL_MAP_WRITE_BIT | gl::GL_MAP_FLUSH_EXPLICIT_BIT | gl::GL_MAP_UNSYNCHRONIZED_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
+    }
+    else
+    {
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, nullptr, GL_STREAM_DRAW);
+    }
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
 
     /*glEnableVertexAttribArray(1);
@@ -259,6 +274,8 @@ float Particles::elapsed()
 
     m_elapsedSinceEpoch = std::chrono::time_point_cast<std::chrono::milliseconds>(
           std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+
+    //std::cout << "elapsed " << static_cast<float>(secs(m_time - t0).count() * 100) << std::endl;
 
     return static_cast<float>(secs(m_time - t0).count());
 }
@@ -541,6 +558,14 @@ void Particles::render()
     //glEnable(GL_BLEND);
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    //if (m_bufferStorageAvaiable)
+    //{
+    //    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+    //    gl::glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
+    //    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    //}
+
+
     glBindVertexArray(m_vaos[0]);
 
     //auto T = glm::scale(m_transform, glm::vec3(0.01f));
@@ -576,9 +601,20 @@ void Particles::render()
         break;
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    if (m_bufferStorageAvaiable)
+    {
+        std::memcpy(m_bufferPointer, m_positions.data(), sizeof(glm::vec4) * m_num);
+        glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+        gl::glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+    else
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STREAM_DRAW);
+        //glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
 }
 
 

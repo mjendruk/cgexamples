@@ -103,4 +103,7 @@ protected:
 
     int m_width;
     int m_height;
+
+    bool m_bufferStorageAvaiable;
+    void * m_bufferPointer;
 };
