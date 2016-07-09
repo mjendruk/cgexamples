@@ -31,7 +31,8 @@ public:
         CPU,
         CPU_OMP,
         CPU_OMP_SSE41,
-        CPU_OMP_AVX2 
+        CPU_OMP_AVX2,
+        GPU_ComputeShaders
     };
 
 public:
@@ -68,15 +69,17 @@ protected:
     void processOMP();
     void processSSE41();
     void processAVX2();
+    void processComputeShaders();
     
 
 protected:
     std::array<gl::GLuint, 2> m_vbos;
 
-    std::array<gl::GLuint, 1> m_programs;
+    std::array<gl::GLuint, 3> m_programs;
     std::array<gl::GLuint, 1> m_vertexShaders;
     std::array<gl::GLuint, 1> m_fragmentShaders;
     std::array<gl::GLuint, 1> m_geometryShaders;
+    std::array<gl::GLuint, 2> m_computeShaders;
 
     std::array<gl::GLuint, 1> m_vaos;
 
@@ -106,4 +109,6 @@ protected:
 
     bool m_bufferStorageAvaiable;
     void * m_bufferPointer;
+
+    bool m_computeShadersAvailable;
 };

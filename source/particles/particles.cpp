@@ -39,17 +39,39 @@ thread_local std::random_device rd;
 thread_local auto mt = std::mt19937{ rd() };
 thread_local auto frand = std::uniform_real_distribution<float>{ -1.f, 1.f };
 
+int getComputeMaxInvocations()
+{
+    int maxInvocations = 0;
+
+    glGetIntegerv(gl::GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &maxInvocations);
+
+    return maxInvocations;
+}
+
+
+glm::ivec3 getMaxComputeWorkGroupCounts()
+{
+    glm::ivec3 counts;
+
+    gl::glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &counts.x);
+    gl::glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &counts.y);
+    gl::glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &counts.z);
+
+    return counts;
+}
+
 
 }
 
 
 Particles::Particles()
-: m_num(10000)
+: m_num(250000)
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
 , m_bufferStorageAvaiable(false)
 , m_bufferPointer(nullptr)
+, m_computeShadersAvailable(false)
 {
 }
 
@@ -66,13 +88,18 @@ Particles::~Particles()
         glDeleteShader(m_fragmentShaders[i]);
     for (auto i = 0ull; i < m_geometryShaders.size(); ++i)
         glDeleteShader(m_geometryShaders[i]);
+    for (auto i = 0ull; i < m_computeShaders.size(); ++i)
+        glDeleteShader(m_computeShaders[i]);
     //glDeleteTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
 }
 
 void Particles::initialize()
 {
-    m_bufferStorageAvaiable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_buffer_storage });
-    //m_bufferStorageAvaiable = false;
+    //m_bufferStorageAvaiable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_buffer_storage });
+    m_bufferStorageAvaiable = false;
+
+    m_computeShadersAvailable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_compute_shader });
+    //m_computeShadersAvailable = false;
 
     //glClearColor(0.12f, 0.14f, 0.18f, 1.0f);
     glClearColor(1.f, 1.f, 1.f, 1.0f);
@@ -119,17 +146,42 @@ void Particles::initialize()
     for (auto i = 0ull; i < m_programs.size(); ++i)
     {
         m_programs[i] = glCreateProgram();
-
-        m_vertexShaders[i] = glCreateShader(GL_VERTEX_SHADER);
-        m_geometryShaders[i] = glCreateShader(GL_GEOMETRY_SHADER);
-        m_fragmentShaders[i] = glCreateShader(GL_FRAGMENT_SHADER);
-
-        glAttachShader(m_programs[i], m_vertexShaders[i]);
-        glAttachShader(m_programs[i], m_geometryShaders[i]);
-        glAttachShader(m_programs[i], m_fragmentShaders[i]);
-
-        glBindFragDataLocation(m_programs[i], 0, "out_color");
     }
+
+    for (auto i = 0ull; i < m_vertexShaders.size(); ++i)
+    {
+        m_vertexShaders[i] = glCreateShader(GL_VERTEX_SHADER);
+    }
+
+    for (auto i = 0ull; i < m_geometryShaders.size(); ++i)
+    {
+        m_geometryShaders[i] = glCreateShader(GL_GEOMETRY_SHADER);
+    }
+
+    for (auto i = 0ull; i < m_fragmentShaders.size(); ++i)
+    {
+        m_fragmentShaders[i] = glCreateShader(GL_FRAGMENT_SHADER);
+    }
+
+    if (m_computeShadersAvailable)
+    {
+        for (auto i = 0ull; i < m_computeShaders.size(); ++i)
+        {
+            m_computeShaders[i] = glCreateShader(gl32ext::GL_COMPUTE_SHADER);
+        }
+    }
+
+    glAttachShader(m_programs[0], m_vertexShaders[0]);
+    glAttachShader(m_programs[0], m_geometryShaders[0]);
+    glAttachShader(m_programs[0], m_fragmentShaders[0]);
+
+    if (m_computeShadersAvailable)
+    {
+        glAttachShader(m_programs[1], m_computeShaders[0]);
+        glAttachShader(m_programs[2], m_computeShaders[1]);
+    }
+
+    glBindFragDataLocation(m_programs[0], 0, "out_color");
 
     loadShaders();
 
@@ -145,10 +197,13 @@ void Particles::cleanup()
 
 bool Particles::loadShaders()
 {
-    static const auto sourceFiles = std::array<std::string, 3>{{
+    static const auto sourceFiles = std::array<std::string, 5>{{
         "data/particles/particles.vert",
         "data/particles/particles.geom",
-        "data/particles/particles.frag" }};
+        "data/particles/particles.frag",
+        "data/particles/particles-movement.comp",
+        "data/particles/particles-spawning.comp"
+    }};
 
     {   static const auto i = 0;
 
@@ -178,12 +233,46 @@ bool Particles::loadShaders()
         glCompileShader(m_fragmentShaders[i]);
         success &= cgutils::checkForCompilationError(m_fragmentShaders[i], sourceFiles[2]);
 
+        if (m_computeShadersAvailable)
+        {
+            const auto source = cgutils::textFromFile(sourceFiles[3].c_str());
+            const auto source_ptr = source.c_str();
+            if (source_ptr)
+                glShaderSource(m_computeShaders[0], 1, &source_ptr, 0);
+
+            glCompileShader(m_computeShaders[0]);
+            success &= cgutils::checkForCompilationError(m_computeShaders[0], sourceFiles[3]);
+        }
+
+        if (m_computeShadersAvailable)
+        {
+            const auto source = cgutils::textFromFile(sourceFiles[4].c_str());
+            const auto source_ptr = source.c_str();
+            if (source_ptr)
+                glShaderSource(m_computeShaders[1], 1, &source_ptr, 0);
+
+            glCompileShader(m_computeShaders[1]);
+            success &= cgutils::checkForCompilationError(m_computeShaders[1], sourceFiles[4]);
+        }
+
         if (!success)
             return false;
 
-        gl::glLinkProgram(m_programs[i]);
+        gl::glLinkProgram(m_programs[0]);
 
-        success &= cgutils::checkForLinkerError(m_programs[i], "particles program");
+        success &= cgutils::checkForLinkerError(m_programs[0], "particles program");
+
+        if (m_computeShadersAvailable)
+        {
+            gl::glLinkProgram(m_programs[1]);
+
+            success &= cgutils::checkForLinkerError(m_programs[1], "particles movement program");
+
+            gl::glLinkProgram(m_programs[2]);
+
+            success &= cgutils::checkForLinkerError(m_programs[1], "particles spawning program");
+        }
+
         if (!success)
             return false;
     }
@@ -220,6 +309,40 @@ void Particles::pause()
 
 void Particles::setProcessing(const ProcessingMode mode)
 {
+    if (static_cast<int>(m_mode) >= static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+    {
+        if (static_cast<int>(mode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+        {
+            // switch from GPU to CPU -> copy back position and velocity information
+
+            glBindBuffer(gl::GL_COPY_READ_BUFFER, m_vbos[0]);
+            gl::glGetBufferSubData(GL_COPY_READ_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
+            //void * data = glMapBuffer(GL_COPY_READ_BUFFER, GL_READ_ONLY);
+            //std::memcpy(m_positions.data(), data, sizeof(glm::vec4) * m_num);
+            //glUnmapBuffer(GL_COPY_READ_BUFFER);
+            //glBindBuffer(GL_COPY_READ_BUFFER, 0);
+
+            glBindBuffer(GL_COPY_READ_BUFFER, m_vbos[1]);
+            gl::glGetBufferSubData(GL_COPY_READ_BUFFER, 0, sizeof(glm::vec4) * m_num, m_velocities.data());
+            //void * data = glMapBuffer(GL_COPY_READ_BUFFER, GL_READ_ONLY);
+            //std::memcpy(m_velocities.data(), data, sizeof(glm::vec4) * m_num);
+            //glUnmapBuffer(GL_COPY_READ_BUFFER);
+            glBindBuffer(GL_COPY_READ_BUFFER, 0);
+        }
+    }
+
+    if (static_cast<int>(m_mode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+    {
+        if (static_cast<int>(mode) >= static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+        {
+            // switch from CPU to GPU -> copy velocity information
+
+            glBindBuffer(gl::GL_COPY_WRITE_BUFFER, m_vbos[1]);
+            gl::glBufferData(GL_COPY_WRITE_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), gl::GL_STATIC_DRAW);
+            glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
+        }
+    }
+
     m_mode = mode;
 }
 
@@ -275,7 +398,7 @@ float Particles::elapsed()
     m_elapsedSinceEpoch = std::chrono::time_point_cast<std::chrono::milliseconds>(
           std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 
-    //std::cout << "elapsed " << static_cast<float>(secs(m_time - t0).count() * 100) << std::endl;
+    std::cout << "elapsed " << static_cast<float>(secs(m_time - t0).count() * 100) << std::endl;
 
     return static_cast<float>(secs(m_time - t0).count());
 }
@@ -290,13 +413,13 @@ void Particles::process()
 
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        const auto f = gravity - m_velocities[i] * friction;
-
         auto & p = m_positions[i];
         auto & v = m_velocities[i];
 
-        p = p + (v * elapsed) + (0.5f * f * elapsed2);
-        v = v + (f * elapsed);
+        const auto f = gravity - v * friction;
+
+        p += (v * elapsed) + (0.5f * f * elapsed2);
+        v += (f * elapsed);
 
         if (p.y < 0.f)
         {
@@ -327,13 +450,13 @@ void Particles::processOMP()
     #pragma omp parallel for
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
     {
-        const auto f = gravity - m_velocities[i] * friction;
-
         auto & p = m_positions[i];
         auto & v = m_velocities[i];
 
-        p = p + (v * elapsed) + (0.5f * f * elapsed2);
-        v = v + (f * elapsed);
+        const auto f = gravity - v * friction;
+
+        p += (v * elapsed) + (0.5f * f * elapsed2);
+        v += (f * elapsed);
 
         if (p.y < 0.f)
         {
@@ -455,6 +578,48 @@ void Particles::processAVX2()
             spawn(i);
     }
 #endif
+}
+
+void Particles::processComputeShaders()
+{
+    static const int max_invocations = getComputeMaxInvocations();
+    static const glm::ivec3 max_count = getMaxComputeWorkGroupCounts();
+
+    if (m_paused)
+        return;
+
+    const auto elapsed = this->elapsed();
+    const auto elapsed2 = elapsed * elapsed;
+
+    const auto groups = static_cast<int>(ceil(static_cast<float>(m_num) / static_cast<float>(64)));
+
+    glm::ivec3 workGroupSize;
+    workGroupSize.x = glm::max(groups % max_count.x, 1);
+    workGroupSize.y = glm::max(glm::max(groups - workGroupSize.x * max_count.x, 1) % max_count.y, 1);
+    workGroupSize.z = 1;//glm::max(glm::max((groups - workGroupSize.x * max_count.x) - workGroupSize.y * max_count.y, 1) % max_count.z, 1);
+
+    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_vbos[0]);
+    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, m_vbos[1]);
+
+    glUseProgram(m_programs[1]);
+    glUniform1f(0, elapsed);
+    glUniform1f(1, elapsed2);
+    //glUniform1f(2, friction);
+    //glUniform4fv(3, 1, glm::value_ptr(gravity));
+    gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
+    //glUseProgram(0);
+
+    gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
+
+    glUseProgram(m_programs[2]);
+    //glUniform1f(0, velocityThreshold);
+    gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
+    glUseProgram(0);
+
+    gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
+
+    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, 0);
+    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, 0);
 }
 
 void Particles::render()
@@ -596,24 +761,30 @@ void Particles::render()
     case Particles::ProcessingMode::CPU_OMP_AVX2:
         processAVX2();
         break;
+    case Particles::ProcessingMode::GPU_ComputeShaders:
+        processComputeShaders();
+        break;
 
     default:
         break;
     }
 
-    if (m_bufferStorageAvaiable)
+    if (static_cast<int>(m_mode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
     {
-        std::memcpy(m_bufferPointer, m_positions.data(), sizeof(glm::vec4) * m_num);
-        glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-        gl::glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-    }
-    else
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STREAM_DRAW);
-        //glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        if (m_bufferStorageAvaiable)
+        {
+            std::memcpy(m_bufferPointer, m_positions.data(), sizeof(glm::vec4) * m_num);
+            glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+            gl::glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
+        else
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STREAM_DRAW);
+            //glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
     }
 }
 
