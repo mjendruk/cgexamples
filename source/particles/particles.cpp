@@ -65,7 +65,9 @@ glm::ivec3 getMaxComputeWorkGroupCounts()
 
 
 Particles::Particles()
-: m_num(250000)
+: m_processingMode(ProcessingMode::CPU_OMP_SSE41)
+, m_drawMode(DrawingMode::ShadedQuads)
+, m_num(250000)
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
@@ -105,6 +107,8 @@ void Particles::initialize()
     glClearColor(1.f, 1.f, 1.f, 1.0f);
 
     glEnable(GL_DEPTH_TEST);
+
+    glPointSize(0.5f * 0.71f * m_scale);
 
     glGenBuffers(static_cast<GLsizei>(m_vbos.size()), m_vbos.data());
 
@@ -172,16 +176,25 @@ void Particles::initialize()
     }
 
     glAttachShader(m_programs[0], m_vertexShaders[0]);
-    glAttachShader(m_programs[0], m_geometryShaders[0]);
     glAttachShader(m_programs[0], m_fragmentShaders[0]);
+
+    glAttachShader(m_programs[1], m_vertexShaders[0]);
+    glAttachShader(m_programs[1], m_geometryShaders[0]);
+    glAttachShader(m_programs[1], m_fragmentShaders[1]);
+
+    glAttachShader(m_programs[2], m_vertexShaders[0]);
+    glAttachShader(m_programs[2], m_geometryShaders[0]);
+    glAttachShader(m_programs[2], m_fragmentShaders[2]);
 
     if (m_computeShadersAvailable)
     {
-        glAttachShader(m_programs[1], m_computeShaders[0]);
-        glAttachShader(m_programs[2], m_computeShaders[1]);
+        glAttachShader(m_programs[3], m_computeShaders[0]);
+        glAttachShader(m_programs[4], m_computeShaders[1]);
     }
 
     glBindFragDataLocation(m_programs[0], 0, "out_color");
+    glBindFragDataLocation(m_programs[1], 0, "out_color");
+    glBindFragDataLocation(m_programs[2], 0, "out_color");
 
     loadShaders();
 
@@ -197,10 +210,12 @@ void Particles::cleanup()
 
 bool Particles::loadShaders()
 {
-    static const auto sourceFiles = std::array<std::string, 5>{{
+    static const auto sourceFiles = std::array<std::string, 7>{{
         "data/particles/particles.vert",
         "data/particles/particles.geom",
         "data/particles/particles.frag",
+        "data/particles/particles-circle.frag",
+        "data/particles/particles-sphere.frag",
         "data/particles/particles-movement.comp",
         "data/particles/particles-spawning.comp"
     }};
@@ -224,35 +239,56 @@ bool Particles::loadShaders()
         glCompileShader(m_geometryShaders[i]);
         success &= cgutils::checkForCompilationError(m_geometryShaders[i], sourceFiles[1]);
 
+        {
+            const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[2].c_str());
+            const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
+            if (fragmentShaderSource_ptr)
+                glShaderSource(m_fragmentShaders[0], 1, &fragmentShaderSource_ptr, 0);
 
-        const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[2].c_str());
-        const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
-        if (fragmentShaderSource_ptr)
-            glShaderSource(m_fragmentShaders[i], 1, &fragmentShaderSource_ptr, 0);
+            glCompileShader(m_fragmentShaders[0]);
+            success &= cgutils::checkForCompilationError(m_fragmentShaders[0], sourceFiles[2]);
+        }
 
-        glCompileShader(m_fragmentShaders[i]);
-        success &= cgutils::checkForCompilationError(m_fragmentShaders[i], sourceFiles[2]);
+        {
+            const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[3].c_str());
+            const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
+            if (fragmentShaderSource_ptr)
+                glShaderSource(m_fragmentShaders[1], 1, &fragmentShaderSource_ptr, 0);
+
+            glCompileShader(m_fragmentShaders[1]);
+            success &= cgutils::checkForCompilationError(m_fragmentShaders[1], sourceFiles[3]);
+        }
+
+        {
+            const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[4].c_str());
+            const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
+            if (fragmentShaderSource_ptr)
+                glShaderSource(m_fragmentShaders[2], 1, &fragmentShaderSource_ptr, 0);
+
+            glCompileShader(m_fragmentShaders[2]);
+            success &= cgutils::checkForCompilationError(m_fragmentShaders[2], sourceFiles[4]);
+        }
 
         if (m_computeShadersAvailable)
         {
-            const auto source = cgutils::textFromFile(sourceFiles[3].c_str());
+            const auto source = cgutils::textFromFile(sourceFiles[5].c_str());
             const auto source_ptr = source.c_str();
             if (source_ptr)
                 glShaderSource(m_computeShaders[0], 1, &source_ptr, 0);
 
             glCompileShader(m_computeShaders[0]);
-            success &= cgutils::checkForCompilationError(m_computeShaders[0], sourceFiles[3]);
+            success &= cgutils::checkForCompilationError(m_computeShaders[0], sourceFiles[5]);
         }
 
         if (m_computeShadersAvailable)
         {
-            const auto source = cgutils::textFromFile(sourceFiles[4].c_str());
+            const auto source = cgutils::textFromFile(sourceFiles[6].c_str());
             const auto source_ptr = source.c_str();
             if (source_ptr)
                 glShaderSource(m_computeShaders[1], 1, &source_ptr, 0);
 
             glCompileShader(m_computeShaders[1]);
-            success &= cgutils::checkForCompilationError(m_computeShaders[1], sourceFiles[4]);
+            success &= cgutils::checkForCompilationError(m_computeShaders[1], sourceFiles[6]);
         }
 
         if (!success)
@@ -262,15 +298,23 @@ bool Particles::loadShaders()
 
         success &= cgutils::checkForLinkerError(m_programs[0], "particles program");
 
+        gl::glLinkProgram(m_programs[1]);
+
+        success &= cgutils::checkForLinkerError(m_programs[1], "particles program");
+
+        gl::glLinkProgram(m_programs[2]);
+
+        success &= cgutils::checkForLinkerError(m_programs[2], "particles program");
+
         if (m_computeShadersAvailable)
         {
-            gl::glLinkProgram(m_programs[1]);
+            gl::glLinkProgram(m_programs[3]);
 
-            success &= cgutils::checkForLinkerError(m_programs[1], "particles movement program");
+            success &= cgutils::checkForLinkerError(m_programs[3], "particles movement program");
 
-            gl::glLinkProgram(m_programs[2]);
+            gl::glLinkProgram(m_programs[4]);
 
-            success &= cgutils::checkForLinkerError(m_programs[1], "particles spawning program");
+            success &= cgutils::checkForLinkerError(m_programs[4], "particles spawning program");
         }
 
         if (!success)
@@ -292,6 +336,26 @@ void Particles::loadUniformLocations()
     m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "scale");
     glUniform2f(m_uniformLocations[1], m_scale / m_width, m_scale / m_height);
 
+    //glUseProgram(0);
+
+    glUseProgram(m_programs[1]);
+
+    m_uniformLocations[2] = glGetUniformLocation(m_programs[1], "transform");
+    glUniformMatrix4fv(m_uniformLocations[2], 1, GL_FALSE, glm::value_ptr(m_transform));
+
+    m_uniformLocations[3] = glGetUniformLocation(m_programs[1], "scale");
+    glUniform2f(m_uniformLocations[3], m_scale / m_width, m_scale / m_height);
+
+    //glUseProgram(0);
+
+    glUseProgram(m_programs[2]);
+
+    m_uniformLocations[4] = glGetUniformLocation(m_programs[2], "transform");
+    glUniformMatrix4fv(m_uniformLocations[4], 1, GL_FALSE, glm::value_ptr(m_transform));
+
+    m_uniformLocations[5] = glGetUniformLocation(m_programs[2], "scale");
+    glUniform2f(m_uniformLocations[5], m_scale / m_width, m_scale / m_height);
+
     glUseProgram(0);
 }
 
@@ -309,7 +373,7 @@ void Particles::pause()
 
 void Particles::setProcessing(const ProcessingMode mode)
 {
-    if (static_cast<int>(m_mode) >= static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+    if (static_cast<int>(m_processingMode) >= static_cast<int>(ProcessingMode::GPU_ComputeShaders))
     {
         if (static_cast<int>(mode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
         {
@@ -331,7 +395,7 @@ void Particles::setProcessing(const ProcessingMode mode)
         }
     }
 
-    if (static_cast<int>(m_mode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+    if (static_cast<int>(m_processingMode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
     {
         if (static_cast<int>(mode) >= static_cast<int>(ProcessingMode::GPU_ComputeShaders))
         {
@@ -343,7 +407,12 @@ void Particles::setProcessing(const ProcessingMode mode)
         }
     }
 
-    m_mode = mode;
+    m_processingMode = mode;
+}
+
+void Particles::setDrawing(const DrawingMode mode)
+{
+    m_drawMode = mode;
 }
 
 float Particles::scale()
@@ -354,6 +423,7 @@ float Particles::scale()
 void Particles::setScale(const float scale)
 {
     m_scale = glm::clamp(scale, 1.f, 1024.f);
+    glPointSize(0.5f * 0.71f * m_scale);
 }
 
 float Particles::angle() const
@@ -398,7 +468,7 @@ float Particles::elapsed()
     m_elapsedSinceEpoch = std::chrono::time_point_cast<std::chrono::milliseconds>(
           std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 
-    std::cout << "elapsed " << static_cast<float>(secs(m_time - t0).count() * 100) << std::endl;
+    //std::cout << "elapsed " << static_cast<float>(secs(m_time - t0).count() * 100) << std::endl;
 
     return static_cast<float>(secs(m_time - t0).count());
 }
@@ -601,7 +671,7 @@ void Particles::processComputeShaders()
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_vbos[0]);
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, m_vbos[1]);
 
-    glUseProgram(m_programs[1]);
+    glUseProgram(m_programs[3]);
     glUniform1f(0, elapsed);
     glUniform1f(1, elapsed2);
     //glUniform1f(2, friction);
@@ -611,7 +681,7 @@ void Particles::processComputeShaders()
 
     gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
 
-    glUseProgram(m_programs[2]);
+    glUseProgram(m_programs[4]);
     //glUniform1f(0, velocityThreshold);
     gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
     glUseProgram(0);
@@ -630,7 +700,7 @@ void Particles::render()
     //glActiveTexture(GL_TEXTURE0);
     //glBindTexture(GL_TEXTURE_2D, m_textures[0]);
 
-    glUseProgram(m_programs[0]);
+    glUseProgram(m_programs[static_cast<size_t>(m_drawMode)]);
 //    glUniform1f(m_uniformLocations[0], 0);
 
     // setup view
@@ -643,8 +713,8 @@ void Particles::render()
 
     m_transform = projection * view;
 
-    glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
-    glUniform2f(m_uniformLocations[1], m_scale / m_width, m_scale / m_height);
+    glUniformMatrix4fv(m_uniformLocations[static_cast<size_t>(m_drawMode) * 2 + 0], 1, GL_FALSE, glm::value_ptr(m_transform));
+    glUniform2f(m_uniformLocations[static_cast<size_t>(m_drawMode) * 2 + 1], m_scale / m_width, m_scale / m_height);
 
 
 
@@ -747,7 +817,7 @@ void Particles::render()
     //glDisable(GL_BLEND);
     //glDisable(GL_DEPTH_TEST);
 
-    switch (m_mode)
+    switch (m_processingMode)
     {
     case Particles::ProcessingMode::CPU:
         process();
@@ -769,7 +839,7 @@ void Particles::render()
         break;
     }
 
-    if (static_cast<int>(m_mode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
+    if (static_cast<int>(m_processingMode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
     {
         if (m_bufferStorageAvaiable)
         {

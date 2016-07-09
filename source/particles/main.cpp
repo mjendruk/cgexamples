@@ -86,6 +86,18 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
         example.setProcessing(Particles::ProcessingMode::GPU_ComputeShaders);
         std::cout << "Processing: GPU_ComputeShaders" << std::endl;
         break;
+    case GLFW_KEY_8:
+        example.setDrawing(Particles::DrawingMode::Points);
+        std::cout << "Drawing: Points" << std::endl;
+        break;
+    case GLFW_KEY_9:
+        example.setDrawing(Particles::DrawingMode::Quads);
+        std::cout << "Drawing: Quads" << std::endl;
+        break;
+    case GLFW_KEY_0:
+        example.setDrawing(Particles::DrawingMode::ShadedQuads);
+        std::cout << "Drawing: ShadedQuads" << std::endl;
+        break;
     }
 }
 
@@ -137,6 +149,9 @@ int main(int /*argc*/, char ** /*argv*/)
         << "  [3] particle processing: CPU_OMP_SSE41" << std::endl
         << "  [4] particle processing: CPU_OMP_AVX2" << std::endl
         << "  [5] particle processing: GPU_ComputeShaders" << std::endl
+        << "  [8] particle drawing: Points" << std::endl
+        << "  [9] particle drawing: Quads" << std::endl
+        << "  [0] particle drawing: ShadedQuads" << std::endl
         << "  [Space] pause processing (toggle)" << std::endl
         << "  [a/d] rotate left/right" << std::endl
         << "  [S/s] increase/decrease particle scale" << std::endl

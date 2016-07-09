@@ -35,6 +35,13 @@ public:
         GPU_ComputeShaders
     };
 
+    enum class DrawingMode
+    {
+        Points,
+        Quads,
+        ShadedQuads
+    };
+
 public:
     Particles();
     ~Particles();
@@ -50,6 +57,7 @@ public:
     void pause();
 
     void setProcessing(const ProcessingMode mode);
+    void setDrawing(const DrawingMode mode);
     
     float scale();
     void setScale(float scale);
@@ -75,22 +83,23 @@ protected:
 protected:
     std::array<gl::GLuint, 2> m_vbos;
 
-    std::array<gl::GLuint, 3> m_programs;
+    std::array<gl::GLuint, 5> m_programs;
     std::array<gl::GLuint, 1> m_vertexShaders;
-    std::array<gl::GLuint, 1> m_fragmentShaders;
     std::array<gl::GLuint, 1> m_geometryShaders;
+    std::array<gl::GLuint, 3> m_fragmentShaders;
     std::array<gl::GLuint, 2> m_computeShaders;
 
     std::array<gl::GLuint, 1> m_vaos;
 
     //std::array<gl::GLuint, 1> m_textures;
-    std::array<gl::GLuint, 3> m_uniformLocations;
+    std::array<gl::GLuint, 6> m_uniformLocations;
 
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
 
 
-    ProcessingMode m_mode;
+    ProcessingMode m_processingMode;
+    DrawingMode m_drawMode;
 
     std::int32_t m_num;
     float m_scale;
