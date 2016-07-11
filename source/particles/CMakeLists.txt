@@ -45,8 +45,7 @@ set(sources
     ${data}/particles.vert
     ${data}/particles.geom
     ${data}/particles.frag
-    ${data}/particles-movement.comp
-    ${data}/particles-spawning.comp
+    ${data}/particles.comp
 )
 
 

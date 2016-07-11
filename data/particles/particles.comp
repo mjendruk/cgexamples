@@ -1,0 +1,94 @@
+#version 430
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+uniform float elapsed; // time delta
+uniform float elapsed2; // squared time delta
+uniform float elapsedSinceEpoch; // random seed
+uniform float friction = 0.3333;
+uniform vec4 gravity = vec4(0.0f, -9.80665f, 0.0f, 0.0f);
+uniform float velocityThreshold = 0.01;
+
+layout (std430, binding = 0) buffer Positions
+{
+    vec4 positions[];
+};
+
+layout (std430, binding = 1) buffer Velocities
+{
+    vec4 velocities[];
+};
+
+// A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
+uint hash( uint x ) {
+    x += ( x << 10u );
+    x ^= ( x >>  6u );
+    x += ( x <<  3u );
+    x ^= ( x >> 11u );
+    x += ( x << 15u );
+    return x;
+}
+
+// Compound versions of the hashing algorithm I whipped together.
+uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
+uint hash( uvec3 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z)             ); }
+uint hash( uvec4 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) ); }
+
+// Construct a float with half-open range [0:1] using low 23 bits.
+// All zeroes yields 0.0, all ones yields the next smallest representable value below 1.0.
+float floatConstruct( uint m ) {
+    const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
+    const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
+
+    m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
+    m |= ieeeOne;                          // Add fractional part to 1.0
+
+    float  f = uintBitsToFloat( m );       // Range [1:2]
+    return f * 2.0 - 3.0;                  // Range [-1:1]
+}
+
+// Pseudo-random value in half-open range [0:1].
+float random( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
+float random( float x, float y ) { return floatConstruct(hash(floatBitsToUint(vec2(x, y)))); }
+float random( vec2  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+float random( vec3  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+float random( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+
+void main()
+{
+    uint gID = gl_GlobalInvocationID.x;
+
+    vec4 p = positions[gID];
+    vec4 v = velocities[gID];
+
+    vec4 f = gravity - v * friction;
+
+    p = p + (v * elapsed) + (0.5 * f * elapsed2);
+    v = v + (f * elapsed);
+
+    if (p.y < 0.0)
+    {
+        p.y *= -1.0;
+        v.y *= -1.0;
+
+        v =  v * (1.0 - friction);
+    }
+
+    p.w = dot(vec3(v), vec3(v));
+    
+    positions[gID] = p;
+    velocities[gID] = v;
+    
+    // spawn new
+    if (positions[gID].w < velocityThreshold)
+    {
+        vec4 r = normalize(vec4(random(elapsedSinceEpoch, positions[gID].r), random(elapsedSinceEpoch, positions[gID].g), random(elapsedSinceEpoch, positions[gID].b), 0.0));
+
+        float e = 0.01 * elapsedSinceEpoch;
+
+        velocities[gID] = r * (random(elapsedSinceEpoch, positions[gID].w) * 0.5 + 0.5) + vec4(
+            2.0 * sin(0.121031 * e), 4.0 + 2.0 * sin(e * 0.618709), 2.0 * sin(e * 0.545545), 0.0);
+
+        positions[gID] = r * 0.1 + vec4(0.0, 0.2, 0.0f, 1.0);
+    }
+}

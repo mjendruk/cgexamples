@@ -61,6 +61,19 @@ glm::ivec3 getMaxComputeWorkGroupCounts()
 }
 
 
+std::chrono::high_resolution_clock::duration duration_since_midnight(const std::chrono::high_resolution_clock::time_point & now)
+{
+    time_t tnow = std::chrono::system_clock::to_time_t(now);
+    tm *date = std::localtime(&tnow);
+    date->tm_hour = 0;
+    date->tm_min = 0;
+    date->tm_sec = 0;
+    auto midnight = std::chrono::system_clock::from_time_t(std::mktime(date));
+
+    return now-midnight;
+}
+
+
 }
 
 
@@ -216,8 +229,7 @@ bool Particles::loadShaders()
         "data/particles/particles.frag",
         "data/particles/particles-circle.frag",
         "data/particles/particles-sphere.frag",
-        "data/particles/particles-movement.comp",
-        "data/particles/particles-spawning.comp"
+        "data/particles/particles.comp"
     }};
 
     {   static const auto i = 0;
@@ -280,17 +292,6 @@ bool Particles::loadShaders()
             success &= cgutils::checkForCompilationError(m_computeShaders[0], sourceFiles[5]);
         }
 
-        if (m_computeShadersAvailable)
-        {
-            const auto source = cgutils::textFromFile(sourceFiles[6].c_str());
-            const auto source_ptr = source.c_str();
-            if (source_ptr)
-                glShaderSource(m_computeShaders[1], 1, &source_ptr, 0);
-
-            glCompileShader(m_computeShaders[1]);
-            success &= cgutils::checkForCompilationError(m_computeShaders[1], sourceFiles[6]);
-        }
-
         if (!success)
             return false;
 
@@ -311,10 +312,6 @@ bool Particles::loadShaders()
             gl::glLinkProgram(m_programs[3]);
 
             success &= cgutils::checkForLinkerError(m_programs[3], "particles movement program");
-
-            gl::glLinkProgram(m_programs[4]);
-
-            success &= cgutils::checkForLinkerError(m_programs[4], "particles spawning program");
         }
 
         if (!success)
@@ -465,8 +462,9 @@ float Particles::elapsed()
     const auto t0 = m_time;
     m_time = std::chrono::high_resolution_clock::now();
 
-    m_elapsedSinceEpoch = std::chrono::time_point_cast<std::chrono::milliseconds>(
-          std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+    m_elapsedSinceEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(
+            duration_since_midnight(std::chrono::high_resolution_clock::now())
+        ).count();
 
     //std::cout << "elapsed " << static_cast<float>(secs(m_time - t0).count() * 100) << std::endl;
 
@@ -647,6 +645,8 @@ void Particles::processAVX2()
         if (m_positions[i].w < velocityThreshold)
             spawn(i);
     }
+#else
+    this->elapsed();
 #endif
 }
 
@@ -674,15 +674,10 @@ void Particles::processComputeShaders()
     glUseProgram(m_programs[3]);
     glUniform1f(0, elapsed);
     glUniform1f(1, elapsed2);
-    //glUniform1f(2, friction);
-    //glUniform4fv(3, 1, glm::value_ptr(gravity));
-    gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
-    //glUseProgram(0);
-
-    gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glUseProgram(m_programs[4]);
-    //glUniform1f(0, velocityThreshold);
+    glUniform1f(2, m_elapsedSinceEpoch);
+    //glUniform1f(3, friction);
+    //glUniform4fv(4, 1, glm::value_ptr(gravity));
+    //glUniform1f(5, velocityThreshold);
     gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
     glUseProgram(0);
 
