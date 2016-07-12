@@ -73,11 +73,11 @@ protected:
 
     float elapsed();
 
-    void process();
-    void processOMP();
-    void processSSE41();
-    void processAVX2();
-    void processComputeShaders();
+    void process(float elapsed);
+    void processOMP(float elapsed);
+    void processSSE41(float elapsed);
+    void processAVX2(float elapsed);
+    void processComputeShaders(float elapsed);
     
 
 protected:
@@ -120,4 +120,7 @@ protected:
     void * m_bufferPointer;
 
     bool m_computeShadersAvailable;
+
+    std::chrono::high_resolution_clock::time_point m_startMeasuring;
+    size_t m_measureCount;
 };

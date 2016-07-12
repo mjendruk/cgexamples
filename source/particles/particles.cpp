@@ -80,13 +80,14 @@ std::chrono::high_resolution_clock::duration duration_since_midnight(const std::
 Particles::Particles()
 : m_processingMode(ProcessingMode::CPU_OMP_SSE41)
 , m_drawMode(DrawingMode::ShadedQuads)
-, m_num(250000)
+, m_num(500000)
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
 , m_bufferStorageAvaiable(false)
 , m_bufferPointer(nullptr)
 , m_computeShadersAvailable(false)
+, m_measureCount(0)
 {
 }
 
@@ -213,8 +214,9 @@ void Particles::initialize()
 
     //glGenTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
 
-
     prepare();
+
+    setProcessing(ProcessingMode::GPU_ComputeShaders);
 }
 
 void Particles::cleanup()
@@ -365,6 +367,7 @@ void Particles::resize(int w, int h)
 void Particles::pause()
 {
     m_paused = !m_paused;
+    m_measureCount = 0;
     elapsed();
 }
 
@@ -405,6 +408,7 @@ void Particles::setProcessing(const ProcessingMode mode)
     }
 
     m_processingMode = mode;
+    m_measureCount = 0;
 }
 
 void Particles::setDrawing(const DrawingMode mode)
@@ -471,12 +475,8 @@ float Particles::elapsed()
     return static_cast<float>(secs(m_time - t0).count());
 }
 
-void Particles::process()
+void Particles::process(float elapsed)
 {
-    if (m_paused)
-        return;
-
-    const auto elapsed = this->elapsed();
     const auto elapsed2 = elapsed * elapsed;
 
     for (auto i = 0; i < static_cast<std::int32_t>(m_num); ++i)
@@ -507,12 +507,8 @@ void Particles::process()
     }
 }
 
-void Particles::processOMP()
+void Particles::processOMP(float elapsed)
 {
-    if (m_paused)
-        return;
-
-    const auto elapsed = this->elapsed();
     const auto elapsed2 = elapsed * elapsed;
 
     #pragma omp parallel for
@@ -545,7 +541,7 @@ void Particles::processOMP()
     }
 }
 
-void Particles::processSSE41()
+void Particles::processSSE41(float elapsed)
 {
     static const auto sse_gravity = _mm_load_ps(glm::value_ptr(gravity));
     static const auto sse_friction = _mm_set_ps(0.0f, friction, friction, friction);
@@ -556,10 +552,6 @@ void Particles::processSSE41()
     static const auto sse_yminus1 = _mm_set_ps(0.0f, 1.0f, -1.0f, 1.0f);
     static const auto sse_one_minus_friction_yminus1 = _mm_mul_ps(sse_one_minus_friction, sse_yminus1);
 
-    if (m_paused)
-        return;
-
-    const auto elapsed = this->elapsed();
     const auto sse_elapsed = _mm_set_ps(0.0f, elapsed, elapsed, elapsed);
     const auto sse_elapsed2 = _mm_mul_ps(sse_elapsed, sse_elapsed);
     const auto sse_elapsed2_5 = _mm_mul_ps(sse_05, sse_elapsed2);
@@ -594,7 +586,7 @@ void Particles::processSSE41()
     }
 }
 
-void Particles::processAVX2()
+void Particles::processAVX2(float elapsed)
 {
 #ifdef BUILD_WITH_AVX2
     static const auto avx_gravity = _mm256_set_ps(gravity.w, gravity.z, gravity.y, gravity.x, gravity.w, gravity.z, gravity.y, gravity.x);
@@ -606,10 +598,6 @@ void Particles::processAVX2()
     static const auto avx_yminus1 = _mm256_set_ps(0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
     static const auto avx_one_minus_friction_yminus1 = _mm256_mul_ps(avx_one_minus_friction, avx_yminus1);
 
-    if (m_paused)
-        return;
-
-    const auto elapsed = this->elapsed();
     const auto avx_elapsed = _mm256_set_ps(0.0f, elapsed, elapsed, elapsed, 0.0f, elapsed, elapsed, elapsed);
     const auto avx_elapsed2 = _mm256_mul_ps(avx_elapsed, avx_elapsed);
     const auto avx_elapsed2_5 = _mm256_mul_ps(avx_05, avx_elapsed2);
@@ -645,20 +633,14 @@ void Particles::processAVX2()
         if (m_positions[i].w < velocityThreshold)
             spawn(i);
     }
-#else
-    this->elapsed();
 #endif
 }
 
-void Particles::processComputeShaders()
+void Particles::processComputeShaders(float elapsed)
 {
     static const int max_invocations = getComputeMaxInvocations();
     static const glm::ivec3 max_count = getMaxComputeWorkGroupCounts();
 
-    if (m_paused)
-        return;
-
-    const auto elapsed = this->elapsed();
     const auto elapsed2 = elapsed * elapsed;
 
     const auto groups = static_cast<int>(ceil(static_cast<float>(m_num) / static_cast<float>(64)));
@@ -692,11 +674,7 @@ void Particles::render()
     glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, m_textures[0]);
-
     glUseProgram(m_programs[static_cast<size_t>(m_drawMode)]);
-//    glUniform1f(m_uniformLocations[0], 0);
 
     // setup view
 
@@ -711,95 +689,7 @@ void Particles::render()
     glUniformMatrix4fv(m_uniformLocations[static_cast<size_t>(m_drawMode) * 2 + 0], 1, GL_FALSE, glm::value_ptr(m_transform));
     glUniform2f(m_uniformLocations[static_cast<size_t>(m_drawMode) * 2 + 1], m_scale / m_width, m_scale / m_height);
 
-
-
-    // draw v0
-
-    //glBindVertexArray(m_vaos[0]);
-    //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    //glBindVertexArray(0);
-
-    //glUseProgram(0);
-
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, 0);
-
-
-    // draw v1
-
-    //glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    //glBindVertexArray(m_vaos[0]);
-    //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    //glBindVertexArray(0);
-
-    //glUseProgram(0);
-
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, 0);
-    //glDisable(GL_BLEND);
-
-
-    // draw v2
-
-    //process();
-
-    //glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    //glBindVertexArray(m_vaos[0]);
-
-    //for(const auto & p : m_positions)
-    //{
-    //    auto T = glm::translate(m_transform, p);
-    //    T = glm::scale(T, glm::vec3(0.01f));
-
-    //    glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(T));
-    //    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    //}
-    //glBindVertexArray(0);
-
-    //glUseProgram(0);
-
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, 0);
-    //glDisable(GL_BLEND);
-
-
-    // draw v3
-
-    //glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-
-    ////glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    ////glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
-    ////glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
-
-    ////glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_positions.data(), GL_STATIC_DRAW);
-    //glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec3) * m_num, m_positions3.data());
-    ////glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
-
-    ////glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-    ////glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
-    //glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-    //glEnable(GL_DEPTH_TEST);
-    //glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    //if (m_bufferStorageAvaiable)
-    //{
-    //    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-    //    gl::glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
-    //    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    //}
-
-
     glBindVertexArray(m_vaos[0]);
-
-    //auto T = glm::scale(m_transform, glm::vec3(0.01f));
-    //glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(m_transform));
 
     glDrawArrays(GL_POINTS, 0, m_num);
 
@@ -807,27 +697,43 @@ void Particles::render()
 
     glUseProgram(0);
 
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, 0);
-    //glDisable(GL_BLEND);
-    //glDisable(GL_DEPTH_TEST);
+    if (m_paused)
+        return;
+
+    const auto e = elapsed();
+
+    if (m_measureCount == 0)
+    {
+        m_startMeasuring = m_time;
+    }
+    else if (m_measureCount == 100)
+    {
+        const auto measureEnd = m_time;
+
+        std::cout << (100.0f / (std::chrono::duration_cast<std::chrono::milliseconds>(measureEnd - m_startMeasuring).count() / 1000.0f)) << " FPS" << std::endl;
+
+        m_measureCount = 0;
+        m_startMeasuring = m_time;
+    }
+
+    ++m_measureCount;
 
     switch (m_processingMode)
     {
     case Particles::ProcessingMode::CPU:
-        process();
+        process(e);
         break;
     case Particles::ProcessingMode::CPU_OMP:
-        processOMP();
+        processOMP(e);
         break;
     case Particles::ProcessingMode::CPU_OMP_SSE41:
-        processSSE41();
+        processSSE41(e);
         break;
     case Particles::ProcessingMode::CPU_OMP_AVX2:
-        processAVX2();
+        processAVX2(e);
         break;
     case Particles::ProcessingMode::GPU_ComputeShaders:
-        processComputeShaders();
+        processComputeShaders(e);
         break;
 
     default:
