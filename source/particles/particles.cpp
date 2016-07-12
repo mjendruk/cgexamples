@@ -84,7 +84,7 @@ Particles::Particles()
 , m_scale(32.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
-, m_bufferStorageAvaiable(false)
+, m_bufferStorageAvailable(false)
 , m_bufferPointer(nullptr)
 , m_computeShadersAvailable(false)
 , m_measureCount(0)
@@ -111,8 +111,8 @@ Particles::~Particles()
 
 void Particles::initialize()
 {
-    //m_bufferStorageAvaiable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_buffer_storage });
-    m_bufferStorageAvaiable = false;
+    //m_bufferStorageAvailable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_buffer_storage });
+    m_bufferStorageAvailable = false;
 
     m_computeShadersAvailable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_compute_shader });
     //m_computeShadersAvailable = false;
@@ -140,7 +140,7 @@ void Particles::initialize()
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
 
-    if (m_bufferStorageAvaiable)
+    if (m_bufferStorageAvailable)
     {
         glBufferStorage(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, nullptr, gl32ext::GL_DYNAMIC_STORAGE_BIT | gl::GL_MAP_WRITE_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
         m_bufferPointer = gl::glMapBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num, gl::GL_MAP_WRITE_BIT | gl::GL_MAP_FLUSH_EXPLICIT_BIT | gl::GL_MAP_UNSYNCHRONIZED_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
@@ -645,10 +645,7 @@ void Particles::processComputeShaders(float elapsed)
 
     const auto groups = static_cast<int>(ceil(static_cast<float>(m_num) / static_cast<float>(64)));
 
-    glm::ivec3 workGroupSize;
-    workGroupSize.x = glm::max(groups % max_count.x, 1);
-    workGroupSize.y = glm::max(glm::max(groups - workGroupSize.x * max_count.x, 1) % max_count.y, 1);
-    workGroupSize.z = 1;//glm::max(glm::max((groups - workGroupSize.x * max_count.x) - workGroupSize.y * max_count.y, 1) % max_count.z, 1);
+    const auto workGroupSize = glm::ivec3(groups, 1, 1);
 
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_vbos[0]);
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, m_vbos[1]);
@@ -742,7 +739,7 @@ void Particles::render()
 
     if (static_cast<int>(m_processingMode) < static_cast<int>(ProcessingMode::GPU_ComputeShaders))
     {
-        if (m_bufferStorageAvaiable)
+        if (m_bufferStorageAvailable)
         {
             std::memcpy(m_bufferPointer, m_positions.data(), sizeof(glm::vec4) * m_num);
             glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);

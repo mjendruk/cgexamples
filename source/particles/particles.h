@@ -116,7 +116,7 @@ protected:
     int m_width;
     int m_height;
 
-    bool m_bufferStorageAvaiable;
+    bool m_bufferStorageAvailable;
     void * m_bufferPointer;
 
     bool m_computeShadersAvailable;
