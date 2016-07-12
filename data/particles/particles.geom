@@ -24,7 +24,8 @@ void main()
 
 	g_color = v_color[0];
 
-	p /= p.w;
+	//p /= p.w; // uncomment this to provide fair 
+		// comparison between Point and Quad drawing ... (same fillrate)
 
 	g_uv = vec2(-1.0, -1.0);
 	gl_Position = p + u + v;

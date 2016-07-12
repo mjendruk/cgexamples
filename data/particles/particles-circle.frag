@@ -13,5 +13,5 @@ void main()
 	if(v > 1.0)
 		discard;
 
-	out_color = vec4(g_color.xyz, 1.0);
+	out_color = vec4(mix(vec3(1.0), g_color.xyz, g_color.w), 1.0);
 }

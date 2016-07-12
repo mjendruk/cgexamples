@@ -6,5 +6,5 @@ out vec4 out_color;
 
 void main()
 {
-	out_color = vec4(v_color.xyz, 1.0);
+	out_color = vec4(mix(vec3(1.0), v_color.xyz, v_color.w), 1.0);
 }

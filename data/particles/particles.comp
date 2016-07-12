@@ -7,7 +7,7 @@ uniform float elapsed2; // squared time delta
 uniform float elapsedSinceEpoch; // random seed
 uniform float friction = 0.3333;
 uniform vec4 gravity = vec4(0.0f, -9.80665f, 0.0f, 0.0f);
-uniform float velocityThreshold = 0.01;
+uniform float velocityThreshold = 0.001;
 
 layout (std430, binding = 0) buffer Positions
 {
@@ -84,11 +84,11 @@ void main()
     {
         vec4 r = normalize(vec4(random(elapsedSinceEpoch, positions[gID].r), random(elapsedSinceEpoch, positions[gID].g), random(elapsedSinceEpoch, positions[gID].b), 0.0));
 
-        float e = 0.01 * elapsedSinceEpoch;
+        float e = elapsedSinceEpoch * 10.f;
 
         velocities[gID] = r * (random(elapsedSinceEpoch, positions[gID].w) * 0.5 + 0.5) + vec4(
-            2.0 * sin(0.121031 * e), 4.0 + 2.0 * sin(e * 0.618709), 2.0 * sin(e * 0.545545), 0.0);
+            4.0 * sin(0.121031 * e), 4.0 + sin(e * 0.618709), 4.0 * sin(e * 0.545545), 0.0);
 
-        positions[gID] = r * 0.1 + vec4(0.0, 0.2, 0.0f, 1.0);
+        positions[gID] = r * 0.1 + vec4(0.0, 0.2, 0.0, 1.0);
     }
 }

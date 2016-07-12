@@ -62,6 +62,11 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
         example.loadShaders();
         break;
 
+    case GLFW_KEY_F6:
+        example.benchmark();
+        std::cout << "Benchmark started" << std::endl;
+        break;
+
     case GLFW_KEY_SPACE:
         example.pause();
         break;
@@ -86,12 +91,16 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
         example.setProcessing(Particles::ProcessingMode::GPU_ComputeShaders);
         std::cout << "Processing: GPU_ComputeShaders" << std::endl;
         break;
+    case GLFW_KEY_7:
+        example.setDrawing(Particles::DrawingMode::None);
+        std::cout << "Drawing: None" << std::endl;
+        break;
     case GLFW_KEY_8:
-        example.setDrawing(Particles::DrawingMode::Points);
+        example.setDrawing(Particles::DrawingMode::BuiltInPoints);
         std::cout << "Drawing: Points" << std::endl;
         break;
     case GLFW_KEY_9:
-        example.setDrawing(Particles::DrawingMode::Quads);
+        example.setDrawing(Particles::DrawingMode::CustomQuads);
         std::cout << "Drawing: Quads" << std::endl;
         break;
     case GLFW_KEY_0:
@@ -142,17 +151,22 @@ int main(int /*argc*/, char ** /*argv*/)
 
     std::cout << "Particles (CPU/GPU)" << std::endl << std::endl;
 
-    std::cout << "Key Binding: " << std::endl
+    std::cout 
         << "  [F5] reload shaders" << std::endl
+        << "  [F6] benchmark" << std::endl
+        << "  [Space] pause processing (toggle)" << std::endl
+        << std::endl
         << "  [1] particle processing: CPU default" << std::endl
         << "  [2] particle processing: CPU_OMP" << std::endl
         << "  [3] particle processing: CPU_OMP_SSE41" << std::endl
         << "  [4] particle processing: CPU_OMP_AVX2" << std::endl
         << "  [5] particle processing: GPU_ComputeShaders" << std::endl
-        << "  [8] particle drawing: Points" << std::endl
-        << "  [9] particle drawing: Quads" << std::endl
-        << "  [0] particle drawing: ShadedQuads" << std::endl
-        << "  [Space] pause processing (toggle)" << std::endl
+        << std::endl
+        << "  [7] particle drawing: none/skip" << std::endl
+        << "  [8] particle drawing: built-in points" << std::endl
+        << "  [9] particle drawing: custom quads" << std::endl
+        << "  [0] particle drawing: custom, shaded quads" << std::endl
+        << std::endl
         << "  [a/d] rotate left/right" << std::endl
         << "  [S/s] increase/decrease particle scale" << std::endl
         << std::endl;

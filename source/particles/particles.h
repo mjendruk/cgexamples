@@ -37,8 +37,9 @@ public:
 
     enum class DrawingMode
     {
-        Points,
-        Quads,
+        None,
+        BuiltInPoints,
+        CustomQuads,
         ShadedQuads
     };
 
@@ -49,6 +50,7 @@ public:
     void initialize();
     void cleanup();
     bool loadShaders();
+    void benchmark();
 
     void resize(int w, int h);
     void render();
@@ -67,6 +69,7 @@ public:
 
 protected:
     void loadUniformLocations();
+    void setupTextures();
 
     void prepare();
     void spawn(std::uint32_t index);
@@ -80,6 +83,9 @@ protected:
     void processComputeShaders(float elapsed);
     
 
+    void setupBuffer(bool mapBuffer, bool bufferStorageAvailable);
+
+
 protected:
     std::array<gl::GLuint, 2> m_vbos;
 
@@ -91,7 +97,6 @@ protected:
 
     std::array<gl::GLuint, 1> m_vaos;
 
-    //std::array<gl::GLuint, 1> m_textures;
     std::array<gl::GLuint, 6> m_uniformLocations;
 
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
@@ -103,6 +108,10 @@ protected:
 
     std::int32_t m_num;
     float m_scale;
+
+    bool m_measure;
+    size_t m_measureCount;
+    std::chrono::high_resolution_clock::time_point m_measureTime0;
 
     bool m_paused;
     float m_angle;
@@ -122,7 +131,4 @@ protected:
     void * m_bufferPointer;
 
     bool m_computeShadersAvailable;
-
-    std::chrono::high_resolution_clock::time_point m_startMeasuring;
-    size_t m_measureCount;
 };
