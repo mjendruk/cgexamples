@@ -660,7 +660,7 @@ void Particles::processComputeShaders(float elapsed)
     gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
     glUseProgram(0);
 
-    gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
+    //gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
 
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, 0);
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, 0);
