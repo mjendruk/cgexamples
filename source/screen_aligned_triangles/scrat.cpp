@@ -4,7 +4,6 @@
 #include <cmath>
 #include <iostream>
 #include <string>
-#include <chrono>
 
 #include <glbinding/gl32ext/gl.h>
 

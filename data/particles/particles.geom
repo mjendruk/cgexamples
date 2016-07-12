@@ -24,6 +24,8 @@ void main()
 
 	g_color = v_color[0];
 
+	p /= p.w;
+
 	g_uv = vec2(-1.0, -1.0);
 	gl_Position = p + u + v;
 	EmitVertex();

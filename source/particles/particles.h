@@ -31,7 +31,15 @@ public:
         CPU,
         CPU_OMP,
         CPU_OMP_SSE41,
-        CPU_OMP_AVX2 
+        CPU_OMP_AVX2,
+        GPU_ComputeShaders
+    };
+
+    enum class DrawingMode
+    {
+        Points,
+        Quads,
+        ShadedQuads
     };
 
 public:
@@ -49,6 +57,7 @@ public:
     void pause();
 
     void setProcessing(const ProcessingMode mode);
+    void setDrawing(const DrawingMode mode);
     
     float scale();
     void setScale(float scale);
@@ -64,30 +73,33 @@ protected:
 
     float elapsed();
 
-    void process();
-    void processOMP();
-    void processSSE41();
-    void processAVX2();
+    void process(float elapsed);
+    void processOMP(float elapsed);
+    void processSSE41(float elapsed);
+    void processAVX2(float elapsed);
+    void processComputeShaders(float elapsed);
     
 
 protected:
     std::array<gl::GLuint, 2> m_vbos;
 
-    std::array<gl::GLuint, 1> m_programs;
+    std::array<gl::GLuint, 5> m_programs;
     std::array<gl::GLuint, 1> m_vertexShaders;
-    std::array<gl::GLuint, 1> m_fragmentShaders;
     std::array<gl::GLuint, 1> m_geometryShaders;
+    std::array<gl::GLuint, 3> m_fragmentShaders;
+    std::array<gl::GLuint, 2> m_computeShaders;
 
     std::array<gl::GLuint, 1> m_vaos;
 
     //std::array<gl::GLuint, 1> m_textures;
-    std::array<gl::GLuint, 3> m_uniformLocations;
+    std::array<gl::GLuint, 6> m_uniformLocations;
 
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
 
 
-    ProcessingMode m_mode;
+    ProcessingMode m_processingMode;
+    DrawingMode m_drawMode;
 
     std::int32_t m_num;
     float m_scale;
@@ -99,8 +111,18 @@ protected:
 
     using secs = std::chrono::duration<float, std::chrono::seconds::period>;
     std::chrono::high_resolution_clock::time_point m_time;
+    std::chrono::high_resolution_clock::time_point m_time0; // time at start of program to reduce float resolution error
+
     float m_elapsedSinceEpoch;
 
     int m_width;
     int m_height;
+
+    bool m_bufferStorageAvailable;
+    void * m_bufferPointer;
+
+    bool m_computeShadersAvailable;
+
+    std::chrono::high_resolution_clock::time_point m_startMeasuring;
+    size_t m_measureCount;
 };
