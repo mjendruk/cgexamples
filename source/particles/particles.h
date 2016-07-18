@@ -5,8 +5,6 @@
 #include <array>
 #include <vector>
 
-#include "allocator.h"
-
 #pragma warning(push)
 #pragma warning(disable : 4201)
 #include <glm/vec3.hpp>
@@ -28,11 +26,11 @@ class Particles
 public:
     enum class ProcessingMode
     {
-        CPU,
-        CPU_OMP,
-        CPU_OMP_SSE41,
-        CPU_OMP_AVX2,
-        GPU_ComputeShaders
+        CPU
+    ,   CPU_OMP,
+    //,   CPU_OMP_SSE41
+    //,   CPU_OMP_AVX2
+    //,   GPU_ComputeShaders
     };
 
     enum class DrawingMode
@@ -78,12 +76,12 @@ protected:
 
     void process(float elapsed);
     void processOMP(float elapsed);
-    void processSSE41(float elapsed);
-    void processAVX2(float elapsed);
-    void processComputeShaders(float elapsed);
+    //void processSSE41(float elapsed);
+    //void processAVX2(float elapsed);
+    //void processComputeShaders(float elapsed);
     
 
-    void setupBuffer(bool mapBuffer, bool bufferStorageAvailable);
+    void setupPositionsBuffer();
 
 
 protected:
@@ -99,8 +97,8 @@ protected:
 
     std::array<gl::GLuint, 6> m_uniformLocations;
 
-    std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
-    std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
+    std::vector<glm::vec4> m_positions;
+    std::vector<glm::vec4> m_velocities;
 
 
     ProcessingMode m_processingMode;

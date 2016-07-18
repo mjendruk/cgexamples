@@ -79,18 +79,18 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
         example.setProcessing(Particles::ProcessingMode::CPU_OMP);
         std::cout << "Processing: CPU_OMP" << std::endl;
         break;
-    case GLFW_KEY_3:
-        example.setProcessing(Particles::ProcessingMode::CPU_OMP_SSE41);
-        std::cout << "Processing: CPU_OMP_SSE41" << std::endl;
-        break;
-    case GLFW_KEY_4:
-        example.setProcessing(Particles::ProcessingMode::CPU_OMP_AVX2);
-        std::cout << "Processing: CPU_OMP_AVX2" << std::endl;
-        break;
-    case GLFW_KEY_5:
-        example.setProcessing(Particles::ProcessingMode::GPU_ComputeShaders);
-        std::cout << "Processing: GPU_ComputeShaders" << std::endl;
-        break;
+    //case GLFW_KEY_3:
+    //    example.setProcessing(Particles::ProcessingMode::CPU_OMP_SSE41);
+    //    std::cout << "Processing: CPU_OMP_SSE41" << std::endl;
+    //    break;
+    //case GLFW_KEY_4:
+    //    example.setProcessing(Particles::ProcessingMode::CPU_OMP_AVX2);
+    //    std::cout << "Processing: CPU_OMP_AVX2" << std::endl;
+    //    break;
+    //case GLFW_KEY_5:
+    //    example.setProcessing(Particles::ProcessingMode::GPU_ComputeShaders);
+    //    std::cout << "Processing: GPU_ComputeShaders" << std::endl;
+    //    break;
     case GLFW_KEY_7:
         example.setDrawing(Particles::DrawingMode::None);
         std::cout << "Drawing: None" << std::endl;
