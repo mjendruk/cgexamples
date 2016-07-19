@@ -91,21 +91,25 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
         example.setProcessing(Particles::ProcessingMode::GPU_ComputeShaders);
         std::cout << "Processing: GPU_ComputeShaders" << std::endl;
         break;
-    case GLFW_KEY_7:
+    case GLFW_KEY_6:
         example.setDrawing(Particles::DrawingMode::None);
         std::cout << "Drawing: None" << std::endl;
         break;
-    case GLFW_KEY_8:
+    case GLFW_KEY_7:
         example.setDrawing(Particles::DrawingMode::BuiltInPoints);
         std::cout << "Drawing: Points" << std::endl;
         break;
-    case GLFW_KEY_9:
+    case GLFW_KEY_8:
         example.setDrawing(Particles::DrawingMode::CustomQuads);
         std::cout << "Drawing: Quads" << std::endl;
         break;
-    case GLFW_KEY_0:
+    case GLFW_KEY_9:
         example.setDrawing(Particles::DrawingMode::ShadedQuads);
         std::cout << "Drawing: ShadedQuads" << std::endl;
+        break;    
+    case GLFW_KEY_0:
+        example.setDrawing(Particles::DrawingMode::Fluid);
+        std::cout << "Drawing: Fluid" << std::endl;
         break;
     }
 }
@@ -162,10 +166,11 @@ int main(int /*argc*/, char ** /*argv*/)
         << "  [4] particle processing: CPU_OMP_AVX2" << std::endl
         << "  [5] particle processing: GPU_ComputeShaders" << std::endl
         << std::endl
-        << "  [7] particle drawing: none/skip" << std::endl
-        << "  [8] particle drawing: built-in points" << std::endl
-        << "  [9] particle drawing: custom quads" << std::endl
-        << "  [0] particle drawing: custom, shaded quads" << std::endl
+        << "  [6] particle drawing: none/skip" << std::endl
+        << "  [7] particle drawing: built-in points" << std::endl
+        << "  [8] particle drawing: custom quads" << std::endl
+        << "  [9] particle drawing: custom, shaded quads" << std::endl
+        << "  [0] particle drawing: fluid" << std::endl
         << std::endl
         << "  [a/d] rotate left/right" << std::endl
         << "  [S/s] increase/decrease particle scale" << std::endl

@@ -40,7 +40,8 @@ public:
         None,
         BuiltInPoints,
         CustomQuads,
-        ShadedQuads
+        ShadedQuads,
+        Fluid
     };
 
 public:
@@ -68,8 +69,10 @@ public:
     void rotate(float angle);
 
 protected:
+    bool loadShader(gl::GLuint & shader, const std::string & sourceFile) const;
     void loadUniformLocations();
     void setupTextures();
+    void setupShaders();
 
     void prepare();
     void spawn(std::uint32_t index);
@@ -82,7 +85,6 @@ protected:
     void processAVX2(float elapsed);
     void processComputeShaders(float elapsed);
     
-
     void setupBuffer(bool mapBuffer, bool bufferStorageAvailable);
 
 
@@ -90,14 +92,14 @@ protected:
     std::array<gl::GLuint, 2> m_vbos;
 
     std::array<gl::GLuint, 5> m_programs;
-    std::array<gl::GLuint, 1> m_vertexShaders;
-    std::array<gl::GLuint, 1> m_geometryShaders;
-    std::array<gl::GLuint, 3> m_fragmentShaders;
+    std::array<gl::GLuint, 2> m_vertexShaders;
+    std::array<gl::GLuint, 2> m_geometryShaders;
+    std::array<gl::GLuint, 4> m_fragmentShaders;
     std::array<gl::GLuint, 2> m_computeShaders;
 
     std::array<gl::GLuint, 1> m_vaos;
 
-    std::array<gl::GLuint, 6> m_uniformLocations;
+    std::array<gl::GLuint, 9> m_uniformLocations;
 
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
@@ -115,8 +117,6 @@ protected:
 
     bool m_paused;
     float m_angle;
-
-    glm::mat4 m_transform;
 
     using secs = std::chrono::duration<float, std::chrono::seconds::period>;
     std::chrono::high_resolution_clock::time_point m_time;

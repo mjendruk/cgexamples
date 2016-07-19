@@ -45,8 +45,13 @@ set(sources
     ${data}/particles.vert
     ${data}/particles.geom
     ${data}/particles.frag
+    ${data}/particles-circle.frag
+    ${data}/particles-sphere.frag
     ${data}/particles.comp
-)
+    ${data}/particles-fluid.vert
+    ${data}/particles-fluid.geom
+    ${data}/particles-fluid.frag
+)    
 
 
 # 
