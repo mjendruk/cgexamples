@@ -64,18 +64,18 @@ namespace
 
 
 Particles::Particles()
-    : m_processingMode(ProcessingMode::CPU) // initialization is faulty when beginning with GPU
-    , m_drawMode(DrawingMode::ShadedQuads)
-    , m_num(10000)
-    , m_scale(128.f)
-    , m_paused(false)
-    , m_time(std::chrono::high_resolution_clock::now())
-    , m_time0(std::chrono::high_resolution_clock::now())
-    , m_bufferStorageAvailable(false)
-    , m_bufferPointer(nullptr)
-    , m_computeShadersAvailable(false)
-    , m_measure(false)
-    , m_measureCount(0)
+: m_processingMode(ProcessingMode::CPU_OMP_AVX2) // initialization is faulty when beginning with GPU
+, m_drawMode(DrawingMode::Fluid)
+, m_num(10000)
+, m_radius(128.f)
+, m_paused(false)
+, m_time(std::chrono::high_resolution_clock::now())
+, m_time0(std::chrono::high_resolution_clock::now())
+, m_bufferStorageAvailable(false)
+, m_bufferPointer(nullptr)
+, m_computeShadersAvailable(false)
+, m_measure(false)
+, m_measureCount(0)
 {
 }
 
@@ -269,14 +269,15 @@ bool Particles::loadShaders()
     success &= loadShader(m_fragmentShaders[1], "data/particles/particles-circle.frag");
     success &= loadShader(m_fragmentShaders[2], "data/particles/particles-sphere.frag");
 
-    success &= loadShader(m_vertexShaders[1],   "data/particles/particles-fluid.vert");
-    success &= loadShader(m_geometryShaders[1], "data/particles/particles-fluid.geom");
-    success &= loadShader(m_fragmentShaders[3], "data/particles/particles-fluid.frag");
-
     if (m_computeShadersAvailable)
     {
         success &= loadShader(m_computeShaders[0], "data/particles/particles.comp");
     }
+
+    success &= loadShader(m_vertexShaders[1],   "data/particles/particles-fluid.vert");
+    success &= loadShader(m_geometryShaders[1], "data/particles/particles-fluid.geom");
+    success &= loadShader(m_fragmentShaders[3], "data/particles/particles-fluid.frag");
+
 
     gl::glLinkProgram(m_programs[0]);
 
@@ -291,7 +292,6 @@ bool Particles::loadShaders()
     if (m_computeShadersAvailable)
     {
         gl::glLinkProgram(m_programs[3]);
-
         success &= cgutils::checkForLinkerError(m_programs[3], "particles movement program");
     }
 
@@ -310,38 +310,26 @@ bool Particles::loadShaders()
 void Particles::loadUniformLocations()
 {
     glUseProgram(m_programs[0]);
-
     m_uniformLocations[0] = glGetUniformLocation(m_programs[0], "transform");
-
     m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "scale");
-    glUniform2f(m_uniformLocations[1], m_scale / m_width, m_scale / m_height);
-
+    glUniform3f(m_uniformLocations[1], 1.f / m_width, 1.f / m_height, m_radius);
 
     glUseProgram(m_programs[1]);
-
     m_uniformLocations[2] = glGetUniformLocation(m_programs[1], "transform");
-
     m_uniformLocations[3] = glGetUniformLocation(m_programs[1], "scale");
-    glUniform2f(m_uniformLocations[3], m_scale / m_width, m_scale / m_height);
-
+    glUniform3f(m_uniformLocations[3], 1.f / m_width, 1.f / m_height, m_radius);
 
     glUseProgram(m_programs[2]);
-
     m_uniformLocations[4] = glGetUniformLocation(m_programs[2], "transform");
-
     m_uniformLocations[5] = glGetUniformLocation(m_programs[2], "scale");
-    glUniform2f(m_uniformLocations[5], m_scale / m_width, m_scale / m_height);
-
+    glUniform3f(m_uniformLocations[5], 1.f / m_width, 1.f / m_height, m_radius);
 
     glUseProgram(m_programs[4]); // fluid
-
     m_uniformLocations[6] = glGetUniformLocation(m_programs[4], "view");
     m_uniformLocations[7] = glGetUniformLocation(m_programs[4], "projection");
-
-    m_uniformLocations[8] = glGetUniformLocation(m_programs[4], "scale");
-    glUniform2f(m_uniformLocations[8], m_scale / m_width, m_scale / m_height);
-
-
+    m_uniformLocations[8] = glGetUniformLocation(m_programs[4], "ndcInverse");
+    m_uniformLocations[9] = glGetUniformLocation(m_programs[4], "scale");
+    glUniform4f(m_uniformLocations[9], 1.f / m_width, 1.f / m_height, m_radius * 0.001f, static_cast<float>(m_width) / m_height);
 
     glUseProgram(0);
 }
@@ -415,12 +403,12 @@ void Particles::setDrawing(const DrawingMode mode)
 
 float Particles::scale()
 {
-    return m_scale;
+    return m_radius;
 }
 
 void Particles::setScale(const float scale)
 {
-    m_scale = glm::clamp(scale, 1.f, 1024.f);
+    m_radius = glm::clamp(scale, 1.f, 1024.f);
 }
 
 float Particles::angle() const
@@ -700,7 +688,8 @@ void Particles::render()
 
             glUniformMatrix4fv(m_uniformLocations[6], 1, GL_FALSE, glm::value_ptr(view));
             glUniformMatrix4fv(m_uniformLocations[7], 1, GL_FALSE, glm::value_ptr(projection));
-            //glUniform2f(m_uniformLocations[8], m_scale / m_width, m_scale / m_height);
+            const auto ndcInverse = glm::inverse(projection * view);
+            glUniformMatrix4fv(m_uniformLocations[8], 1, GL_FALSE, glm::value_ptr(ndcInverse));
 
             glBindVertexArray(m_vaos[0]);
             glDrawArrays(GL_POINTS, 0, m_num);
@@ -728,12 +717,11 @@ void Particles::render()
             const auto transform = projection * view;
 
             glUniformMatrix4fv(m_uniformLocations[uniformLocationOffset + 0], 1, GL_FALSE, glm::value_ptr(transform));
-            glUniform2f(m_uniformLocations[uniformLocationOffset + 1], m_scale / m_width, m_scale / m_height);
 
             glBindVertexArray(m_vaos[0]);
 
             if (m_drawMode == DrawingMode::BuiltInPoints)
-                glPointSize(m_scale * 0.5f * glm::sqrt(glm::pi<float>()));
+                glPointSize(m_radius * 0.5f * glm::sqrt(glm::pi<float>()));
 
             glDrawArrays(GL_POINTS, 0, m_num);
 

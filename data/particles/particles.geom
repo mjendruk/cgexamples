@@ -1,6 +1,6 @@
 #version 330
 
-uniform vec2 scale; 
+uniform vec3 scale; // 1.0 / width, 1.0 / height, radius
 
 layout (points) in;
 layout (triangle_strip, max_vertices = 4) out;
@@ -14,8 +14,8 @@ void main()
 {
 	vec4 p = gl_in[0].gl_Position;
 
-	vec4 u = vec4(scale.x, 0.0, 0.0, 0.0);	
-	vec4 v = vec4(0.0, scale.y, 0.0, 0.0);
+	vec4 u = vec4(scale[2] * scale.x, 0.0, 0.0, 0.0);	
+	vec4 v = vec4(0.0, scale[2] * scale.y, 0.0, 0.0);
 
 	// frustum culling 
 	vec2 c = clamp(abs(p.xy) / p.w, 0.0, 1.0);
