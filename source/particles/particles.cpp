@@ -52,9 +52,9 @@ namespace
     glm::ivec3 getMaxComputeWorkGroupCounts()
     {
         auto counts = glm::ivec3{};
-        gl::glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &counts.x);
-        gl::glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &counts.y);
-        gl::glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &counts.z);
+        glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &counts.x);
+        glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &counts.y);
+        glGetIntegeri_v(gl::GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &counts.z);
 
         return counts;
     }
@@ -67,7 +67,7 @@ Particles::Particles()
 : m_processingMode(ProcessingMode::CPU_OMP_AVX2) // initialization is faulty when beginning with GPU
 , m_drawMode(DrawingMode::Fluid)
 , m_num(100000)
-, m_radius(64.f)
+, m_radius(128.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
 , m_time0(std::chrono::high_resolution_clock::now())
@@ -117,7 +117,7 @@ void Particles::setupBuffer(const bool mapBuffer, const bool bufferStorageAvaila
         if (m_bufferPointer)
         {
             glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-            gl::glUnmapBuffer(GL_ARRAY_BUFFER);
+            glUnmapBuffer(GL_ARRAY_BUFFER);
             m_bufferPointer = nullptr;
             glBindBuffer(GL_ARRAY_BUFFER, 0);
         }
@@ -133,14 +133,14 @@ void Particles::setupBuffer(const bool mapBuffer, const bool bufferStorageAvaila
     if (mapBuffer && bufferStorageAvailable)
     {
         glBufferStorage(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, nullptr,
-            gl32ext::GL_DYNAMIC_STORAGE_BIT | gl::GL_MAP_WRITE_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
-        m_bufferPointer = gl::glMapBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num,
-            gl::GL_MAP_WRITE_BIT | gl::GL_MAP_FLUSH_EXPLICIT_BIT | gl::GL_MAP_UNSYNCHRONIZED_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
+            gl32ext::GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
+        m_bufferPointer = glMapBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num,
+            GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_UNSYNCHRONIZED_BIT | gl32ext::GL_MAP_PERSISTENT_BIT);
     }
     else if (bufferStorageAvailable)
     {
         glBufferStorage(GL_ARRAY_BUFFER, sizeof(glm::vec4) * m_num, nullptr,
-            gl32ext::GL_DYNAMIC_STORAGE_BIT | gl::GL_MAP_WRITE_BIT);
+            gl32ext::GL_DYNAMIC_STORAGE_BIT | GL_MAP_WRITE_BIT);
     }
     else
     {
@@ -156,9 +156,9 @@ void Particles::setupBuffer(const bool mapBuffer, const bool bufferStorageAvaila
 void Particles::initialize()
 {
     // can map and unmap buffer api be used
-    m_bufferStorageAvailable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_buffer_storage });
+    //m_bufferStorageAvailable = glbinding::ContextInfo::supported({ GLextension::GL_ARB_buffer_storage });
     // can compute shader 
-    m_computeShadersAvailable = glbinding::ContextInfo::supported({ gl::GLextension::GL_ARB_compute_shader });
+    m_computeShadersAvailable = glbinding::ContextInfo::supported({ GLextension::GL_ARB_compute_shader });
 
     // setup common state
 
@@ -168,10 +168,79 @@ void Particles::initialize()
 
     // setup resources : VAO
 
-    glGenBuffers(static_cast<GLsizei>(m_vbos.size()), m_vbos.data());
-    glGenVertexArrays(static_cast<GLsizei>(m_vaos.size()), m_vaos.data());
+    glGenBuffers(m_vbos.size(), m_vbos.data());
+    glGenVertexArrays(m_vaos.size(), m_vaos.data());
 
     setupBuffer(m_processingMode != ProcessingMode::GPU_ComputeShaders, m_bufferStorageAvailable);
+
+   
+    glGenTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
+    //glGenRenderbuffers(static_cast<GLsizei>(m_renderBuffers.size()), m_renderBuffers.data());
+    glGenFramebuffers(static_cast<GLsizei>(m_fbo.size()), m_fbo.data());
+    
+    static const GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
+
+    // setup render target for fluid pass
+   
+    glBindTexture(GL_TEXTURE_2D, m_textures[0]);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width, m_height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_NEAREST));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(GL_NEAREST));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, static_cast<GLint>(GL_CLAMP_TO_EDGE));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, static_cast<GLint>(GL_CLAMP_TO_EDGE));
+    //glBindTexture(GL_TEXTURE_2D, 0);
+  
+    //glBindRenderbuffer(GL_RENDERBUFFER, m_renderBuffers[0]);
+    //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height);
+    ////glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo[0]);
+    //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_textures[0], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_textures[0], 0);
+    //glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_renderBuffers[0]);
+    glDrawBuffers(1, drawBuffers);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+    // setup render target for fluid pass (temp for sparated blur)
+
+    glBindTexture(GL_TEXTURE_2D, m_textures[1]);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width, m_height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_NEAREST));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(GL_NEAREST));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, static_cast<GLint>(GL_CLAMP_TO_EDGE));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, static_cast<GLint>(GL_CLAMP_TO_EDGE));
+    //glBindTexture(GL_TEXTURE_2D, 0);
+
+    //glBindRenderbuffer(GL_RENDERBUFFER, m_renderBuffers[1]);
+    //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height);
+    ////glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo[1]);
+    //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_textures[1], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_textures[1], 0);
+    //glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_renderBuffers[1]);
+    glDrawBuffers(1, drawBuffers);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+    // setup screen aligned triangle 
+
+    static const float verticesScrAT[] = { -1.f, -3.f, -1.f, 1.f, 3.f, 1.f };
+
+    glBindVertexArray(m_vaos[1]);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[2]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * sizeof(verticesScrAT), verticesScrAT, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
+    glBindVertexArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 
     setupShaders();
     setupTextures();
@@ -240,15 +309,19 @@ void Particles::setupShaders()
     glAttachShader(m_programs[4], m_geometryShaders[1]);
     glAttachShader(m_programs[4], m_fragmentShaders[3]);
 
+    glAttachShader(m_programs[5], m_vertexShaders[2]);
+    glAttachShader(m_programs[5], m_fragmentShaders[4]);
+
     glBindFragDataLocation(m_programs[0], 0, "out_color");
     glBindFragDataLocation(m_programs[1], 0, "out_color");
     glBindFragDataLocation(m_programs[2], 0, "out_color");
     glBindFragDataLocation(m_programs[4], 0, "out_color");
+    glBindFragDataLocation(m_programs[5], 0, "out_color");
 
     loadShaders();
 }
 
-bool Particles::loadShader(gl::GLuint & shader, const std::string & sourceFile) const
+bool Particles::loadShader(GLuint & shader, const std::string & sourceFile) const
 {
     const auto source = cgutils::textFromFile(sourceFile.c_str());
     const auto source_ptr = source.c_str();
@@ -278,25 +351,30 @@ bool Particles::loadShaders()
     success &= loadShader(m_geometryShaders[1], "data/particles/particles-fluid.geom");
     success &= loadShader(m_fragmentShaders[3], "data/particles/particles-fluid.frag");
 
+    success &= loadShader(m_vertexShaders[2], "data/particles/fluid-pass.vert");
+    success &= loadShader(m_fragmentShaders[4], "data/particles/fluid-pass.frag");
 
-    gl::glLinkProgram(m_programs[0]);
+    glLinkProgram(m_programs[0]);
 
     success &= cgutils::checkForLinkerError(m_programs[0], "particles program");
 
-    gl::glLinkProgram(m_programs[1]);
+    glLinkProgram(m_programs[1]);
     success &= cgutils::checkForLinkerError(m_programs[1], "particles circle program");
 
-    gl::glLinkProgram(m_programs[2]);
+    glLinkProgram(m_programs[2]);
     success &= cgutils::checkForLinkerError(m_programs[2], "particles sphere program");
 
     if (m_computeShadersAvailable)
     {
-        gl::glLinkProgram(m_programs[3]);
+        glLinkProgram(m_programs[3]);
         success &= cgutils::checkForLinkerError(m_programs[3], "particles movement program");
     }
 
-    gl::glLinkProgram(m_programs[4]);
+    glLinkProgram(m_programs[4]);
     success &= cgutils::checkForLinkerError(m_programs[4], "particles fluid program");
+
+    glLinkProgram(m_programs[5]);
+    success &= cgutils::checkForLinkerError(m_programs[5], "fluid pass program");
 
     if (!success)
         return false;
@@ -310,24 +388,29 @@ bool Particles::loadShaders()
 void Particles::loadUniformLocations()
 {
     glUseProgram(m_programs[0]);
-    m_uniformLocations[0] = glGetUniformLocation(m_programs[0], "transform");
-    m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "scale");
+    m_uniformLocations[0]  = glGetUniformLocation(m_programs[0], "transform");
+    m_uniformLocations[1]  = glGetUniformLocation(m_programs[0], "scale");
 
     glUseProgram(m_programs[1]);
-    m_uniformLocations[2] = glGetUniformLocation(m_programs[1], "transform");
-    m_uniformLocations[3] = glGetUniformLocation(m_programs[1], "scale");
+    m_uniformLocations[2]  = glGetUniformLocation(m_programs[1], "transform");
+    m_uniformLocations[3]  = glGetUniformLocation(m_programs[1], "scale");
 
     glUseProgram(m_programs[2]);
-    m_uniformLocations[4] = glGetUniformLocation(m_programs[2], "transform");
-    m_uniformLocations[5] = glGetUniformLocation(m_programs[2], "scale");
+    m_uniformLocations[4]  = glGetUniformLocation(m_programs[2], "transform");
+    m_uniformLocations[5]  = glGetUniformLocation(m_programs[2], "scale");
 
     glUseProgram(m_programs[4]); // fluid
-    m_uniformLocations[6] = glGetUniformLocation(m_programs[4], "view");
-    m_uniformLocations[7] = glGetUniformLocation(m_programs[4], "projection");
-    m_uniformLocations[8] = glGetUniformLocation(m_programs[4], "ndcInverse");
-    m_uniformLocations[9] = glGetUniformLocation(m_programs[4], "scale");
+    m_uniformLocations[6]  = glGetUniformLocation(m_programs[4], "view");
+    m_uniformLocations[7]  = glGetUniformLocation(m_programs[4], "projection");
+    m_uniformLocations[8]  = glGetUniformLocation(m_programs[4], "ndcInverse");
+    m_uniformLocations[9]  = glGetUniformLocation(m_programs[4], "scale");
     m_uniformLocations[10] = glGetUniformLocation(m_programs[4], "normal");
     m_uniformLocations[11] = glGetUniformLocation(m_programs[4], "eye");
+
+    glUseProgram(m_programs[5]); // fluid-pass
+    m_uniformLocations[12] = glGetUniformLocation(m_programs[5], "source");
+    m_uniformLocations[13] = glGetUniformLocation(m_programs[5], "advance");
+    m_uniformLocations[14] = glGetUniformLocation(m_programs[5], "ndcInverse");
 
     glUseProgram(0);
 }
@@ -336,6 +419,20 @@ void Particles::resize(int w, int h)
 {
     m_width = w;
     m_height = h;
+
+    glBindTexture(GL_TEXTURE_2D, m_textures[0]);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width, m_height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glBindTexture(GL_TEXTURE_2D, m_textures[1]);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width, m_height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    //glBindRenderbuffer(GL_RENDERBUFFER, m_renderBuffers[0]);
+    //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height);
+    //glBindRenderbuffer(GL_RENDERBUFFER, m_renderBuffers[1]);
+    //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height);
+    //glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
 void Particles::pause()
@@ -358,11 +455,11 @@ void Particles::setProcessing(const ProcessingMode mode)
     if (m_processingMode == ProcessingMode::GPU_ComputeShaders
         && mode != ProcessingMode::GPU_ComputeShaders)
     {
-        glBindBuffer(gl::GL_COPY_READ_BUFFER, m_vbos[0]);
-        gl::glGetBufferSubData(GL_COPY_READ_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
+        glBindBuffer(GL_COPY_READ_BUFFER, m_vbos[0]);
+        glGetBufferSubData(GL_COPY_READ_BUFFER, 0, sizeof(glm::vec4) * m_num, m_positions.data());
 
         glBindBuffer(GL_COPY_READ_BUFFER, m_vbos[1]);
-        gl::glGetBufferSubData(GL_COPY_READ_BUFFER, 0, sizeof(glm::vec4) * m_num, m_velocities.data());
+        glGetBufferSubData(GL_COPY_READ_BUFFER, 0, sizeof(glm::vec4) * m_num, m_velocities.data());
 
         glBindBuffer(GL_COPY_READ_BUFFER, 0);
 
@@ -378,7 +475,7 @@ void Particles::setProcessing(const ProcessingMode mode)
         && mode == ProcessingMode::GPU_ComputeShaders)
     {
         glBindBuffer(GL_COPY_WRITE_BUFFER, m_vbos[1]);
-        glBufferData(GL_COPY_WRITE_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), gl::GL_STATIC_DRAW);
+        glBufferData(GL_COPY_WRITE_BUFFER, sizeof(glm::vec4) * m_num, m_velocities.data(), GL_STATIC_DRAW);
         glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 
         if (m_bufferStorageAvailable)
@@ -626,8 +723,8 @@ void Particles::processComputeShaders(float elapsed)
 
     const auto workGroupSize = glm::ivec3(groups, 1, 1);
 
-    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_vbos[0]);
-    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, m_vbos[1]);
+    glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_vbos[0]);
+    glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, m_vbos[1]);
 
     glUseProgram(m_programs[3]);
 
@@ -640,10 +737,10 @@ void Particles::processComputeShaders(float elapsed)
     gl32ext::glDispatchCompute(workGroupSize.x, workGroupSize.y, workGroupSize.z);
     glUseProgram(0);
 
-    //gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT);
+    //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, 0);
-    gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, 0);
+    glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, 0);
+    glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 1, 0);
 }
 
 void Particles::render()
@@ -683,8 +780,10 @@ void Particles::render()
         break;
     case Particles::DrawingMode::Fluid:
         {
-            glUseProgram(m_programs[4]);
+            glBindFramebuffer(GL_FRAMEBUFFER, m_fbo[0]);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+            glUseProgram(m_programs[4]);
 
             glUniformMatrix4fv(m_uniformLocations[6], 1, GL_FALSE, glm::value_ptr(view));
             glUniformMatrix4fv(m_uniformLocations[7], 1, GL_FALSE, glm::value_ptr(projection));
@@ -700,7 +799,44 @@ void Particles::render()
             glDrawArrays(GL_POINTS, 0, m_num);
             glBindVertexArray(0);
 
+
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glBindVertexArray(m_vaos[1]);
+
+            glActiveTexture(GL_TEXTURE0);
+            glUseProgram(m_programs[5]);
+
+
+            glUniformMatrix4fv(m_uniformLocations[14], 1, GL_FALSE, glm::value_ptr(ndcInverse));
+
+            //glBindFramebuffer(GL_FRAMEBUFFER, m_fbo[1]);
+            //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            //glBindTexture(GL_TEXTURE_2D, m_textures[0]);
+
+            //glUniform1i(m_uniformLocations[12], 0);
+            //glUniform2f(m_uniformLocations[13], 1.f, 0.f);
+
+            //glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            glBindTexture(GL_TEXTURE_2D, m_textures[0]);
+
+            glUniform1i(m_uniformLocations[12], 0);
+            glUniform2f(m_uniformLocations[13], 0.f, 1.f);
+
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+            glBindVertexArray(0);
             glUseProgram(0);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            glBindVertexArray(0);
         }
         break;
 
@@ -782,7 +918,7 @@ void Particles::render()
 
         std::memcpy(m_bufferPointer, m_positions.data(), sizeof(glm::vec4) * m_num);
         glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
-        gl::glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
+        glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * m_num);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
     else

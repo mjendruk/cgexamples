@@ -89,17 +89,21 @@ protected:
 
 
 protected:
-    std::array<gl::GLuint, 2> m_vbos;
+    std::array<gl::GLuint, 3> m_vbos;
 
-    std::array<gl::GLuint, 5> m_programs;
-    std::array<gl::GLuint, 2> m_vertexShaders;
+    std::array<gl::GLuint, 6> m_programs;
+    std::array<gl::GLuint, 3> m_vertexShaders;
     std::array<gl::GLuint, 2> m_geometryShaders;
-    std::array<gl::GLuint, 4> m_fragmentShaders;
-    std::array<gl::GLuint, 2> m_computeShaders;
+    std::array<gl::GLuint, 5> m_fragmentShaders;
+    std::array<gl::GLuint, 1> m_computeShaders;
 
-    std::array<gl::GLuint, 1> m_vaos;
+    std::array<gl::GLuint, 2> m_fbo;
+    std::array<gl::GLuint, 2> m_textures;
+    //std::array<gl::GLuint, 2> m_renderBuffers;
 
-    std::array<gl::GLuint, 12> m_uniformLocations;
+    std::array<gl::GLuint, 2> m_vaos;
+
+    std::array<gl::GLuint, 15> m_uniformLocations;
 
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
