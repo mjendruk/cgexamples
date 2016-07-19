@@ -2,8 +2,6 @@
 
 layout (location = 0) in vec4 in_vertex;
 
-//out vec4 v_color;
-
 void main()
 {
     gl_Position = vec4(in_vertex.xyz, 1.0);

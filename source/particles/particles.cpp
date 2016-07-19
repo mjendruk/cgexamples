@@ -66,8 +66,8 @@ namespace
 Particles::Particles()
 : m_processingMode(ProcessingMode::CPU_OMP_AVX2) // initialization is faulty when beginning with GPU
 , m_drawMode(DrawingMode::Fluid)
-, m_num(10000)
-, m_radius(128.f)
+, m_num(100000)
+, m_radius(64.f)
 , m_paused(false)
 , m_time(std::chrono::high_resolution_clock::now())
 , m_time0(std::chrono::high_resolution_clock::now())
@@ -312,24 +312,22 @@ void Particles::loadUniformLocations()
     glUseProgram(m_programs[0]);
     m_uniformLocations[0] = glGetUniformLocation(m_programs[0], "transform");
     m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "scale");
-    glUniform3f(m_uniformLocations[1], 1.f / m_width, 1.f / m_height, m_radius);
 
     glUseProgram(m_programs[1]);
     m_uniformLocations[2] = glGetUniformLocation(m_programs[1], "transform");
     m_uniformLocations[3] = glGetUniformLocation(m_programs[1], "scale");
-    glUniform3f(m_uniformLocations[3], 1.f / m_width, 1.f / m_height, m_radius);
 
     glUseProgram(m_programs[2]);
     m_uniformLocations[4] = glGetUniformLocation(m_programs[2], "transform");
     m_uniformLocations[5] = glGetUniformLocation(m_programs[2], "scale");
-    glUniform3f(m_uniformLocations[5], 1.f / m_width, 1.f / m_height, m_radius);
 
     glUseProgram(m_programs[4]); // fluid
     m_uniformLocations[6] = glGetUniformLocation(m_programs[4], "view");
     m_uniformLocations[7] = glGetUniformLocation(m_programs[4], "projection");
     m_uniformLocations[8] = glGetUniformLocation(m_programs[4], "ndcInverse");
     m_uniformLocations[9] = glGetUniformLocation(m_programs[4], "scale");
-    glUniform4f(m_uniformLocations[9], 1.f / m_width, 1.f / m_height, m_radius * 0.001f, static_cast<float>(m_width) / m_height);
+    m_uniformLocations[10] = glGetUniformLocation(m_programs[4], "normal");
+    m_uniformLocations[11] = glGetUniformLocation(m_programs[4], "eye");
 
     glUseProgram(0);
 }
@@ -672,9 +670,10 @@ void Particles::render()
     glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    auto eye = glm::vec3(glm::vec4(0.f, 1.f, 3.f, 0.f) * glm::rotate(glm::mat4(1.f), m_angle, glm::vec3(0.f, 1.f, 0.f)));
+    const auto eye = glm::vec3(glm::vec4(0.f, 1.f, 3.f, 0.f) * glm::rotate(glm::mat4(1.f), m_angle, glm::vec3(0.f, 1.f, 0.f)));
+    const auto center = glm::vec3(0.f, 0.5f, 0.f);
 
-    const auto view = glm::lookAt(eye, glm::vec3(0.f, 0.5f, 0.f), glm::vec3(0.f, 1.f, 0.f));
+    const auto view = glm::lookAt(eye, center, glm::vec3(0.f, 1.f, 0.f));
     const auto projection = glm::perspective(glm::radians(30.f), static_cast<float>(m_width) / m_height, 0.1f, 8.f);
 
 
@@ -686,10 +685,16 @@ void Particles::render()
         {
             glUseProgram(m_programs[4]);
 
+
             glUniformMatrix4fv(m_uniformLocations[6], 1, GL_FALSE, glm::value_ptr(view));
             glUniformMatrix4fv(m_uniformLocations[7], 1, GL_FALSE, glm::value_ptr(projection));
             const auto ndcInverse = glm::inverse(projection * view);
             glUniformMatrix4fv(m_uniformLocations[8], 1, GL_FALSE, glm::value_ptr(ndcInverse));
+            const auto normal = glm::mat3(glm::inverse(view));
+            glUniformMatrix3fv(m_uniformLocations[10], 1, GL_FALSE, glm::value_ptr(normal));
+            const auto eye2 = glm::normalize(center - eye);
+            glUniform3fv(m_uniformLocations[11], 1, glm::value_ptr(eye2));
+            glUniform4f(m_uniformLocations[9], 1.f / m_width, 1.f / m_height, m_radius * 0.0007f, static_cast<float>(m_width) / m_height);
 
             glBindVertexArray(m_vaos[0]);
             glDrawArrays(GL_POINTS, 0, m_num);
@@ -717,6 +722,7 @@ void Particles::render()
             const auto transform = projection * view;
 
             glUniformMatrix4fv(m_uniformLocations[uniformLocationOffset + 0], 1, GL_FALSE, glm::value_ptr(transform));
+            glUniform3f(m_uniformLocations[uniformLocationOffset + 1], 1.f / m_width, 1.f / m_height, m_radius);
 
             glBindVertexArray(m_vaos[0]);
 

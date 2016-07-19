@@ -99,7 +99,7 @@ protected:
 
     std::array<gl::GLuint, 1> m_vaos;
 
-    std::array<gl::GLuint, 10> m_uniformLocations;
+    std::array<gl::GLuint, 12> m_uniformLocations;
 
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_positions;
     std::vector<glm::vec4, aligned_allocator<glm::vec4, SIMD_COUNT * sizeof(glm::vec4)>> m_velocities;
