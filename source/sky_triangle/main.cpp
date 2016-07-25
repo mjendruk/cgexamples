@@ -73,7 +73,7 @@ int main(int /*argc*/, char ** /*argv*/)
     glfwDefaultWindowHints();
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -83,6 +83,9 @@ int main(int /*argc*/, char ** /*argv*/)
         glfwTerminate();
         return 2;
     }
+    
+    int frameBufferWidth, frameBufferHeight;
+    glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
 
     glfwSetWindowSizeCallback(window, resizeCallback);
     glfwSetKeyCallback(window, keyCallback);
@@ -97,7 +100,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
     glbinding::Binding::initialize(false);
 
-    example.resize(canvasWidth, canvasHeight);
+    example.resize(frameBufferWidth, frameBufferHeight);
     example.initialize();
 
     while (!glfwWindowShouldClose(window)) // main loop
