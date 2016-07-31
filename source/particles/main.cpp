@@ -90,6 +90,9 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
     case GLFW_KEY_5:
         example.setProcessing(Particles::ProcessingMode::GPU_ComputeShaders);
         std::cout << "Processing: GPU_ComputeShaders" << std::endl;
+#ifdef __APPLE__
+            std::cout << "not supported by OS X" << std::endl;
+#endif
         break;
     case GLFW_KEY_6:
         example.setDrawing(Particles::DrawingMode::None);
