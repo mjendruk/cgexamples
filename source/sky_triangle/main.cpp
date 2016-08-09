@@ -25,12 +25,15 @@ auto example = SkyTriangle();
 
 const auto canvasWidth = 1440; // in pixel
 const auto canvasHeight = 900; // in pixel
+    
+int frameBufferWidth, frameBufferHeight;
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
-void resizeCallback(GLFWwindow * /*window*/, int width, int height)
+void resizeCallback(GLFWwindow * window, int width, int height)
 {
-    example.resize(width, height);
+    glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
+    example.resize(frameBufferWidth, frameBufferHeight);
 }
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
@@ -84,7 +87,6 @@ int main(int /*argc*/, char ** /*argv*/)
         return 2;
     }
     
-    int frameBufferWidth, frameBufferHeight;
     glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
 
     glfwSetWindowSizeCallback(window, resizeCallback);
