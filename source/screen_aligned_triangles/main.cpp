@@ -1,6 +1,3 @@
-#ifdef __APPLE__
-    #error Can't be compiled on OS X due to use of OpenGl 4.2 features
-#endif
 
 #include <iostream>
 
