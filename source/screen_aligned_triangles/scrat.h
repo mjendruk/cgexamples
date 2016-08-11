@@ -39,14 +39,15 @@ protected:
 protected:
     std::array<gl::GLuint, 2> m_vbos;
 
-    std::array<gl::GLuint, 2> m_programs;
-    std::array<gl::GLuint, 2> m_vertexShaders;
+    std::array<gl::GLuint, 3> m_programs;
+    std::array<gl::GLuint, 3> m_vertexShaders;
+    std::array<gl::GLuint, 2> m_geometryShaders;
     std::array<gl::GLuint, 2> m_fragmentShaders;
 
-    std::array<gl::GLuint, 2> m_vaos;
+    std::array<gl::GLuint, 3> m_vaos;
     gl::GLuint m_fbo;
     std::array<gl::GLuint, 1> m_textures;
-    std::array<gl::GLuint, 3> m_uniformLocations;
+    std::array<gl::GLuint, 4> m_uniformLocations;
 
     gl::GLuint m_query;
     gl::GLuint m_acbuffer;   

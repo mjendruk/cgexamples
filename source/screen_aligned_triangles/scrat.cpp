@@ -65,10 +65,13 @@ void ScrAT::initialize()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
     glBindVertexArray(0);
 
+    glBindVertexArray(m_vaos[2]);
+    glBindVertexArray(0);
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    for (auto i = 0; i < m_programs.size(); ++i)
+    for (auto i = 0; i < 2; ++i)
     {
         m_programs[i] = glCreateProgram();
 
@@ -79,6 +82,19 @@ void ScrAT::initialize()
         glAttachShader(m_programs[i], m_fragmentShaders[i]);
 
         glBindFragDataLocation(m_programs[i], 0, "out_color");
+    }
+
+    {
+        m_programs[2] = glCreateProgram();
+
+        m_vertexShaders[2] = glCreateShader(GL_VERTEX_SHADER);
+        m_geometryShaders[0] = glCreateShader(GL_GEOMETRY_SHADER);
+
+        glAttachShader(m_programs[2], m_vertexShaders[2]);
+        glAttachShader(m_programs[2], m_geometryShaders[0]);
+        glAttachShader(m_programs[2], m_fragmentShaders[0]);
+
+        glBindFragDataLocation(m_programs[2], 0, "out_color");
     }
 
     loadShaders();
@@ -129,66 +145,103 @@ void ScrAT::cleanup()
 
 bool ScrAT::loadShaders()
 {
-    static const auto sourceFiles = std::array<std::string, 4>{
+    static const auto sourceFiles = std::array<std::string, 6>{
         "data/screen_aligned_triangles/record.vert",
+        "data/screen_aligned_triangles/record-empty.vert",
+        "data/screen_aligned_triangles/record.geom",
         "data/screen_aligned_triangles/record.frag",
         "data/screen_aligned_triangles/replay.vert",
         "data/screen_aligned_triangles/replay.frag"  };
 
-    {   static const auto i = 0;
-
+    {
         const auto vertexShaderSource = cgutils::textFromFile(sourceFiles[0].c_str());
         const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
         if (vertexShaderSource_ptr)
-            glShaderSource(m_vertexShaders[i], 1, &vertexShaderSource_ptr, 0);
+            glShaderSource(m_vertexShaders[0], 1, &vertexShaderSource_ptr, 0);
 
-        glCompileShader(m_vertexShaders[i]);
-        bool success = cgutils::checkForCompilationError(m_vertexShaders[i], sourceFiles[0]);
-
-
-        const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[1].c_str());
-        const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
-        if (fragmentShaderSource_ptr)
-            glShaderSource(m_fragmentShaders[i], 1, &fragmentShaderSource_ptr, 0);
-
-        glCompileShader(m_fragmentShaders[i]);
-        success &= cgutils::checkForCompilationError(m_fragmentShaders[i], sourceFiles[1]);
-
-        if (!success)
-            return false;
-
-        gl::glLinkProgram(m_programs[i]);
-
-        success &= cgutils::checkForLinkerError(m_programs[i], "record program");
-        if (!success)
-            return false;
-    }
-
-    {   static const auto i = 1;
-
-        const auto vertexShaderSource = cgutils::textFromFile(sourceFiles[2].c_str());
-        const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
-        if (vertexShaderSource_ptr)
-            glShaderSource(m_vertexShaders[i], 1, &vertexShaderSource_ptr, 0);
-
-        glCompileShader(m_vertexShaders[i]);
-        bool success = cgutils::checkForCompilationError(m_vertexShaders[i], sourceFiles[2]);
+        glCompileShader(m_vertexShaders[0]);
+        bool success = cgutils::checkForCompilationError(m_vertexShaders[0], sourceFiles[0]);
 
 
         const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[3].c_str());
         const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
         if (fragmentShaderSource_ptr)
-            glShaderSource(m_fragmentShaders[i], 1, &fragmentShaderSource_ptr, 0);
+            glShaderSource(m_fragmentShaders[0], 1, &fragmentShaderSource_ptr, 0);
 
-        glCompileShader(m_fragmentShaders[i]);
-        success &= cgutils::checkForCompilationError(m_fragmentShaders[i], sourceFiles[3]);
+        glCompileShader(m_fragmentShaders[0]);
+        success &= cgutils::checkForCompilationError(m_fragmentShaders[0], sourceFiles[3]);
 
         if (!success)
             return false;
 
-        gl::glLinkProgram(m_programs[i]);
+        gl::glLinkProgram(m_programs[0]);
 
-        success &= cgutils::checkForLinkerError(m_programs[i], "replay program");
+        success &= cgutils::checkForLinkerError(m_programs[0], "record program");
+        if (!success)
+            return false;
+    }
+
+    {
+        const auto vertexShaderSource = cgutils::textFromFile(sourceFiles[1].c_str());
+        const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
+        if (vertexShaderSource_ptr)
+            glShaderSource(m_vertexShaders[2], 1, &vertexShaderSource_ptr, 0);
+
+        glCompileShader(m_vertexShaders[2]);
+        bool success = cgutils::checkForCompilationError(m_vertexShaders[2], sourceFiles[1]);
+
+
+        const auto geometryShaderSource = cgutils::textFromFile(sourceFiles[2].c_str());
+        const auto geometryShaderSource_ptr = geometryShaderSource.c_str();
+        if (geometryShaderSource_ptr)
+            glShaderSource(m_geometryShaders[0], 1, &geometryShaderSource_ptr, 0);
+
+        glCompileShader(m_geometryShaders[0]);
+        success &= cgutils::checkForCompilationError(m_geometryShaders[0], sourceFiles[3]);
+
+
+        /*const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[3].c_str());
+        const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
+        if (fragmentShaderSource_ptr)
+            glShaderSource(m_fragmentShaders[0], 1, &fragmentShaderSource_ptr, 0);
+
+        glCompileShader(m_fragmentShaders[0]);
+        success &= cgutils::checkForCompilationError(m_fragmentShaders[0], sourceFiles[3]);*/
+
+        if (!success)
+            return false;
+
+        gl::glLinkProgram(m_programs[2]);
+
+        success &= cgutils::checkForLinkerError(m_programs[2], "record program");
+        if (!success)
+            return false;
+    }
+
+    {
+        const auto vertexShaderSource = cgutils::textFromFile(sourceFiles[4].c_str());
+        const auto vertexShaderSource_ptr = vertexShaderSource.c_str();
+        if (vertexShaderSource_ptr)
+            glShaderSource(m_vertexShaders[1], 1, &vertexShaderSource_ptr, 0);
+
+        glCompileShader(m_vertexShaders[1]);
+        bool success = cgutils::checkForCompilationError(m_vertexShaders[1], sourceFiles[4]);
+
+
+        const auto fragmentShaderSource = cgutils::textFromFile(sourceFiles[5].c_str());
+        const auto fragmentShaderSource_ptr = fragmentShaderSource.c_str();
+        if (fragmentShaderSource_ptr)
+            glShaderSource(m_fragmentShaders[1], 1, &fragmentShaderSource_ptr, 0);
+
+        glCompileShader(m_fragmentShaders[1]);
+        success &= cgutils::checkForCompilationError(m_fragmentShaders[1], sourceFiles[5]);
+
+        if (!success)
+            return false;
+
+        gl::glLinkProgram(m_programs[1]);
+
+        success &= cgutils::checkForLinkerError(m_programs[1], "replay program");
         if (!success)
             return false;
     }
@@ -201,14 +254,17 @@ bool ScrAT::loadShaders()
 
 void ScrAT::loadUniformLocations()
 {
-    glUseProgram(m_programs[0]);
+    //glUseProgram(m_programs[0]);
     m_uniformLocations[2] = glGetUniformLocation(m_programs[0], "benchmark");
 
-    glUseProgram(m_programs[1]);
+    //glUseProgram(m_programs[1]);
     m_uniformLocations[0] = glGetUniformLocation(m_programs[1], "fragmentIndex");
     m_uniformLocations[1] = glGetUniformLocation(m_programs[1], "threshold");
 
-    glUseProgram(0);
+    //glUseProgram(m_programs[2]);
+    m_uniformLocations[3] = glGetUniformLocation(m_programs[2], "benchmark");
+
+    //glUseProgram(0);
 }
 
 bool ScrAT::loadTextures()
@@ -271,8 +327,16 @@ std::uint64_t ScrAT::record(const bool benchmark)
 
     auto elapsed = std::uint64_t{ 0 };
 
-    glUseProgram(m_programs[0]);
-    glUniform1i(m_uniformLocations[2], static_cast<GLint>(benchmark));
+    if (m_vaoMode == 4)
+    {
+        glUseProgram(m_programs[2]);
+        glUniform1i(m_uniformLocations[4], static_cast<GLint>(benchmark));
+    }
+    else
+    {
+        glUseProgram(m_programs[0]);
+        glUniform1i(m_uniformLocations[2], static_cast<GLint>(benchmark));
+    }
 
     if(benchmark)
         glBeginQuery(gl::GL_TIME_ELAPSED, m_query);
@@ -299,6 +363,11 @@ std::uint64_t ScrAT::record(const bool benchmark)
         glPolygonMode(GL_FRONT_AND_BACK, gl::GL_FILL_RECTANGLE_NV);
         glBindVertexArray(m_vaos[1]);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        break;
+    case 4:
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glBindVertexArray(m_vaos[2]);
+        glDrawArrays(GL_POINTS, 0, 1);
         break;
     }
 
@@ -375,11 +444,12 @@ void ScrAT::render()
         for(auto i = 0; i < 1000; ++i)
             elapsed += record(true); // benchmark
 
-        static const auto modes = std::array<std::string, 4>{ 
+        static const auto modes = std::array<std::string, 5>{
             "(0) two triangles, two draw calls :         ", 
             "(1) two triangles, single draw call (quad): ", 
             "(2) single triangle, single draw call :     ",
-            "(3) fill rectangle ext, single draw call:   " };
+            "(3) fill rectangle ext, single draw call:   ",
+            "(4) AVC, single draw call:                  " };
         std::cout << modes[m_vaoMode] <<  cgutils::humanTimeDuration(elapsed / 1000) << std::endl;
 
         record(false);
@@ -412,7 +482,7 @@ void ScrAT::resetAC()
 void ScrAT::switchVAO()
 {
     m_recorded = false;
-    m_vaoMode = (++m_vaoMode) % 4;
+    m_vaoMode = (++m_vaoMode) % 5;
 }
 
 void ScrAT::incrementReplaySpeed()
