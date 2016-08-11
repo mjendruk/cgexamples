@@ -25,14 +25,12 @@ auto example = Particles();
 
 const auto canvasWidth = 1440; // in pixel
 const auto canvasHeight = 900; // in pixel
-int frameBufferWidth, frameBufferHeight;
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
 void resizeCallback(GLFWwindow * window, int width, int height)
 {
-    glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
-    example.resize(frameBufferWidth, frameBufferHeight);
+    example.resize(window);
 }
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
@@ -154,8 +152,6 @@ int main(int /*argc*/, char ** /*argv*/)
         glfwTerminate();
         return 2;
     }
-    
-    glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
 
     glfwSetWindowSizeCallback(window, resizeCallback);
     glfwSetKeyCallback(window, keyCallback);
@@ -187,7 +183,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
     glbinding::Binding::initialize(false);
 
-    example.resize(frameBufferWidth, frameBufferHeight);
+    example.resize(window);
     example.initialize();
 
     while (!glfwWindowShouldClose(window)) // main loop

@@ -419,7 +419,17 @@ void Particles::resize(int w, int h)
 {
     m_width = w;
     m_height = h;
+    resizeTextures();
+}
 
+void Particles::resize(GLFWwindow * window)
+{
+    glfwGetFramebufferSize(window, &m_width, &m_height);
+    resizeTextures();
+}
+
+void Particles::resizeTextures()
+{
     glBindTexture(GL_TEXTURE_2D, m_textures[0]);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width, m_height, 0, GL_RED, GL_FLOAT, nullptr);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
@@ -427,7 +437,7 @@ void Particles::resize(int w, int h)
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, m_width, m_height, 0, GL_RED, GL_FLOAT, nullptr);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
     glBindTexture(GL_TEXTURE_2D, 0);
-
+    
     //glBindRenderbuffer(GL_RENDERBUFFER, m_renderBuffers[0]);
     //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height);
     //glBindRenderbuffer(GL_RENDERBUFFER, m_renderBuffers[1]);
