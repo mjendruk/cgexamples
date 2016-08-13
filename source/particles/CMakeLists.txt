@@ -136,6 +136,10 @@ target_compile_options(${target}
     $<$<CXX_COMPILER_ID:MSVC>:
         $<$<BOOL:${OPTION_USE_AVX2}>:/arch:AVX2>
     >
+    $<$<CXX_COMPILER_ID:AppleClang>:
+    -msse4.1
+    $<$<BOOL:${OPTION_USE_AVX2}>:-mavx2 -mfma>
+    >
 )
 
 
