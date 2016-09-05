@@ -173,11 +173,6 @@ void SkyTriangle::resize(int w, int h)
     m_height = h;
 }
 
-void SkyTriangle::resize(GLFWwindow * window)
-{
-    glfwGetFramebufferSize(window, &m_width, &m_height);
-}
-
 void SkyTriangle::render()
 {
     glViewport(0, 0, m_width, m_height);

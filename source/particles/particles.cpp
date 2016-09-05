@@ -422,12 +422,6 @@ void Particles::resize(int w, int h)
     resizeTextures();
 }
 
-void Particles::resize(GLFWwindow * window)
-{
-    glfwGetFramebufferSize(window, &m_width, &m_height);
-    resizeTextures();
-}
-
 void Particles::resizeTextures()
 {
     glBindTexture(GL_TEXTURE_2D, m_textures[0]);

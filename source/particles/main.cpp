@@ -30,7 +30,7 @@ const auto canvasHeight = 900; // in pixel
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
 void resizeCallback(GLFWwindow * window, int width, int height)
 {
-    example.resize(window);
+    example.resize(width, height);
 }
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
@@ -153,7 +153,7 @@ int main(int /*argc*/, char ** /*argv*/)
         return 2;
     }
 
-    glfwSetWindowSizeCallback(window, resizeCallback);
+    glfwSetFramebufferSizeCallback(window, resizeCallback);
     glfwSetKeyCallback(window, keyCallback);
 
     std::cout << "Particles (CPU/GPU)" << std::endl << std::endl;
@@ -183,7 +183,9 @@ int main(int /*argc*/, char ** /*argv*/)
 
     glbinding::Binding::initialize(false);
 
-    example.resize(window);
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    example.resize(width, height);
     example.initialize();
 
     while (!glfwWindowShouldClose(window)) // main loop
