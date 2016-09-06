@@ -1,4 +1,4 @@
-#version 420 core
+#version 410 core
 
 uniform mat4 modelView;
 uniform mat4 inverseProjection;

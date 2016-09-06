@@ -73,6 +73,7 @@ protected:
     void loadUniformLocations();
     void setupTextures();
     void setupShaders();
+    void resizeTextures();
 
     void prepare();
     void spawn(std::uint32_t index);

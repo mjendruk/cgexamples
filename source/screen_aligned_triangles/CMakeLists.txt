@@ -15,6 +15,12 @@ find_package(glbinding REQUIRED)
 # Target name
 set(target screen_aligned_triangles)
 
+#exit here if using OS X
+if (APPLE)
+    message("${target} skipped: OS X does not support OpenGl 4.2")
+    return()
+endif()
+
 # Exit here if required dependencies are not met
 if (NOT GLFW_FOUND)
     message("${target} skipped: GLFW not found")

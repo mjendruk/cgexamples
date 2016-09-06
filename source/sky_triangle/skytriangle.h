@@ -1,6 +1,7 @@
 
 #include <glbinding/gl32core/gl.h>  // this is a OpenGL feature include; it declares all OpenGL 3.2 Core symbols
 
+
 #include <chrono>
 
 
@@ -12,7 +13,7 @@ class SkyTriangle
 public:
     SkyTriangle();
     ~SkyTriangle();
-
+    
     void initialize();
     void cleanup();
     bool loadShaders();
