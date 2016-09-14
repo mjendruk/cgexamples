@@ -20,6 +20,7 @@ add_subdirectory(cgutils)
 add_subdirectory(screen_aligned_triangles)
 add_subdirectory(sky_triangle)
 add_subdirectory(particles)
+add_subdirectory(stereoscopic_rendering)
 
 
 # 
