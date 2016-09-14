@@ -5,6 +5,14 @@
 // input and events http://www.glfw.org/ 
 #include <GLFW/glfw3.h> 
 
+// Oculus SDK for rendering to the Oculus Rift
+#include "OVR_CAPI_GL.h"
+
+#if defined(_WIN32)
+    #include <dxgi.h> // for GetDefaultAdapterLuid
+    #pragma comment(lib, "dxgi.lib")
+#endif
+
 // C++ binding for the OpenGL API. 
 // https://github.com/cginternals/glbinding
 #include <glbinding/Binding.h>
@@ -20,6 +28,40 @@
 // unit, and have internal linkage."
 namespace
 {
+
+ovrGraphicsLuid GetDefaultAdapterLuid()
+{
+    ovrGraphicsLuid luid = ovrGraphicsLuid();
+
+    #if defined(_WIN32)
+        IDXGIFactory* factory = nullptr;
+
+        if (SUCCEEDED(CreateDXGIFactory(IID_PPV_ARGS(&factory))))
+        {
+            IDXGIAdapter* adapter = nullptr;
+
+            if (SUCCEEDED(factory->EnumAdapters(0, &adapter)))
+            {
+                DXGI_ADAPTER_DESC desc;
+
+                adapter->GetDesc(&desc);
+                memcpy(&luid, &desc.AdapterLuid, sizeof(luid));
+                adapter->Release();
+            }
+
+            factory->Release();
+        }
+    #endif
+
+    return luid;
+}
+
+
+int Compare(const ovrGraphicsLuid & lhs, const ovrGraphicsLuid & rhs)
+{
+    return memcmp(&lhs, &rhs, sizeof(ovrGraphicsLuid));
+}
+
 
 auto example = SkyTriangle();
 
@@ -63,9 +105,34 @@ void errorCallback(int errnum, const char * errmsg)
 
 int main(int /*argc*/, char ** /*argv*/)
 {
-    if (!glfwInit())
+    const auto result = ovr_Initialize(nullptr);
+
+    if (OVR_FAILURE(result))
     {
         return 1;
+    }
+
+	ovrSession session;
+	ovrGraphicsLuid luid;
+	ovrResult result = ovr_Create(&session, &luid);
+	if (OVR_FAILURE(result))
+	{
+		ovr_Shutdown();
+		return 2;
+	}
+
+	if (Compare(luid, GetDefaultAdapterLuid())) // If luid that the Rift is on is not the default adapter LUID...
+	{
+		ovr_Destroy(session);
+		ovr_Shutdown();
+		return 3; // OpenGL supports only the default graphics adapter.
+	}
+
+    if (!glfwInit())
+    {
+		ovr_Destroy(session);
+		ovr_Shutdown();
+        return 4;
     }
 
     glfwSetErrorCallback(errorCallback);
@@ -81,7 +148,9 @@ int main(int /*argc*/, char ** /*argv*/)
     if (!window)
     {
         glfwTerminate();
-        return 2;
+		ovr_Destroy(session);
+		ovr_Shutdown();
+        return 5;
     }
 
     glfwSetFramebufferSizeCallback(window, resizeCallback);
@@ -118,6 +187,9 @@ int main(int /*argc*/, char ** /*argv*/)
     glfwDestroyWindow(window);
 
     glfwTerminate();
+
+	ovr_Destroy(session);
+    ovr_Shutdown();
 
     return 0;
 }
