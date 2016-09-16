@@ -10,10 +10,6 @@
 #include <glbinding/gl/types.h>
 
 
-namespace gloperate
-{
-
-
 /**
 *  @brief
 *    Icosahedron geometry that can be refined dynamically
@@ -45,6 +41,8 @@ public:
     ,   const gl::GLint positionLocation = 0
     ,   const gl::GLint normalLocation = 1);
 
+	~Icosahedron();
+
 
     /**
     *  @brief
@@ -75,11 +73,5 @@ private:
 	gl::GLuint m_indices;
 
     gl::GLsizei m_size;
-
-
-protected:
-    virtual ~Icosahedron();
 };
 
-
-} // namespace gloperate

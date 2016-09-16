@@ -7,11 +7,15 @@
 
 // Oculus SDK for rendering to the Oculus Rift
 #include "OVR_CAPI_GL.h"
+#include "Extras/OVR_Math.h"
 
 #if defined(_WIN32)
     #include <dxgi.h> // for GetDefaultAdapterLuid
     #pragma comment(lib, "dxgi.lib")
 #endif
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 // C++ binding for the OpenGL API. 
 // https://github.com/cginternals/glbinding
@@ -20,7 +24,7 @@
 #include <cgutils/common.h>
 
 #include "eyeframebuffer.h"
-#include "skytriangle.h"
+#include "scene.h"
 
 
 // From http://en.cppreference.com/w/cpp/language/namespace:
@@ -63,8 +67,25 @@ int Compare(const ovrGraphicsLuid & lhs, const ovrGraphicsLuid & rhs)
     return memcmp(&lhs, &rhs, sizeof(ovrGraphicsLuid));
 }
 
+glm::vec3 toGlm(const OVR::Vector3f & vec)
+{
+	return glm::vec3(vec.x, vec.y, vec.z);
+}
 
-auto example = SkyTriangle();
+glm::mat4 toGlm(const OVR::Matrix4f & mat)
+{
+	return glm::mat4(mat.M[0][0], mat.M[1][0], mat.M[2][0], mat.M[3][0],
+		mat.M[0][1], mat.M[1][1], mat.M[2][1], mat.M[3][1],
+		mat.M[0][2], mat.M[1][2], mat.M[2][2], mat.M[3][2],
+		mat.M[0][3], mat.M[1][3], mat.M[2][3], mat.M[3][3]);
+
+	return glm::mat4(mat.M[1][0], mat.M[0][1], mat.M[0][2], mat.M[0][3],
+		mat.M[1][0], mat.M[1][1], mat.M[1][2], mat.M[1][3],
+		mat.M[2][0], mat.M[2][1], mat.M[2][2], mat.M[2][3],
+		mat.M[3][0], mat.M[3][1], mat.M[3][2], mat.M[3][3]);
+}
+
+Scene example;
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
@@ -97,9 +118,7 @@ void errorCallback(int errnum, const char * errmsg)
     std::cerr << errnum << ": " << errmsg << std::endl;
 }
 
-
 }
-
 
 int main(int /*argc*/, char ** /*argv*/)
 {
@@ -187,9 +206,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);
 
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    example.resize(width, height);
+    example.resize(hmdDesc.Resolution.w, hmdDesc.Resolution.h);
     example.initialize();
 
     while (!glfwWindowShouldClose(window)) // main loop
@@ -202,7 +219,6 @@ int main(int /*argc*/, char ** /*argv*/)
 		ovr_GetSessionStatus(session, &sessionStatus);
 		if (sessionStatus.ShouldQuit)
 		{
-			// Because the application is requested to quit, should not request retry
 			break;
 		}
 
@@ -227,7 +243,16 @@ int main(int /*argc*/, char ** /*argv*/)
 			{
 				eyeFramebuffers[eye]->bindAndClear();
 
-				example.render();
+				// Get view and projection matrices
+				OVR::Matrix4f rollPitchYaw = OVR::Matrix4f(EyeRenderPose[eye].Orientation);
+				OVR::Vector3f finalUp = rollPitchYaw.Transform(OVR::Vector3f(0, 1, 0));
+				OVR::Vector3f finalForward = rollPitchYaw.Transform(OVR::Vector3f(0, 0, -1));
+				OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(EyeRenderPose[eye].Position);
+
+				const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
+				const auto projection = ovrMatrix4f_Projection(hmdDesc.DefaultEyeFov[eye], 0.2f, 1000.0f, ovrProjection_None);
+
+				example.render(toGlm(view), toGlm(projection));
 
 				eyeFramebuffers[eye]->unbind();
 
@@ -251,7 +276,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
 			auto layers = &ld.Header;
 			result = ovr_SubmitFrame(session, frameIndex, nullptr, &layers, 1);
-			// exit the rendering loop if submit returns an error, will retry on ovrError_DisplayLost
+
 			if (OVR_FAILURE(result))
 			{
 				break;
@@ -260,10 +285,8 @@ int main(int /*argc*/, char ** /*argv*/)
 			++frameIndex;
 		}
 
-        glfwSwapBuffers(window);
+        // glfwSwapBuffers(window);
     }
-
-    example.cleanup();
 
 	eyeFramebuffers = {};
 

@@ -1,19 +1,15 @@
 #version 410 core
 
 uniform mat4 modelView;
-uniform mat4 inverseProjection;
+uniform mat4 projection;
 
-in vec2 in_vertex;
+in vec3 in_vertex;
+in vec3 in_normal;
 
-out vec2 v_uv;
-out vec4 v_ray;
+out vec3 v_normal;
 
 void main()
 {
-    gl_Position = vec4(in_vertex, 0.0, 1.0);
-
-    v_uv = in_vertex.xy;
-    
-
-    v_ray =  modelView * vec4(in_vertex, 0.0, 1.0);
+    gl_Position = projection * modelView * vec4(in_vertex, 1.0);
+    v_normal = in_normal;
 }

@@ -1,5 +1,5 @@
 
-#include "Icosahedron.h"
+#include "icosahedron.h"
 
 #include <iterator>
 #include <algorithm>
@@ -13,11 +13,6 @@
 
 
 using namespace glm;
-
-
-namespace gloperate
-{
-
 
 std::array<vec3, 12> Icosahedron::vertices()
 {
@@ -197,6 +192,3 @@ gl::GLushort Icosahedron::split(
 
     return i;
 }
-
-
-} // namespace gloperate

@@ -43,8 +43,8 @@ set(sources
     eyeframebuffer.h
     icosahedron.cpp
     icosahedron.h
-    skytriangle.cpp
-    skytriangle.h
+    scene.cpp
+    scene.h
     ${data}/skytriangle.frag
     ${data}/skytriangle.vert
 )
