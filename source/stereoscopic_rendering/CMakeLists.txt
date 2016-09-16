@@ -41,6 +41,8 @@ set(sources
 
     eyeframebuffer.cpp
     eyeframebuffer.h
+    icosahedron.cpp
+    icosahedron.h
     skytriangle.cpp
     skytriangle.h
     ${data}/skytriangle.frag
