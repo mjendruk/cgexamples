@@ -39,6 +39,8 @@ set(data "${CMAKE_SOURCE_DIR}/data/${target}")
 set(sources
     main.cpp
 
+    eyeframebuffer.cpp
+    eyeframebuffer.h
     skytriangle.cpp
     skytriangle.h
     ${data}/skytriangle.frag

@@ -58,7 +58,7 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
     	GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
 
     glGenFramebuffers(1, &m_framebuffer);
-    glBindFramebuffer(m_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthBuffer, 0);
 };
 
@@ -66,6 +66,11 @@ EyeFramebuffer::~EyeFramebuffer()
 {
 	ovr_DestroyTextureSwapChain(m_session, m_textureChain);
 	glDeleteTextures(1, &m_depthBuffer);
+}
+
+bool EyeFramebuffer::valid() const
+{
+	return m_valid;
 };
 
 void EyeFramebuffer::bindAndClear()

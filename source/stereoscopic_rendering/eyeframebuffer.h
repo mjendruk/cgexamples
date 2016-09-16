@@ -3,7 +3,7 @@
 
 #include "OVR_CAPI_GL.h"
 
-#include <glbinding/gl32core/types.h>
+#include <glbinding/gl/types.h>
 
 
 class EyeFramebuffer
@@ -23,6 +23,6 @@ private:
 	ovrSession m_session;
 	ovrSizei m_size;
 	ovrTextureSwapChain m_textureChain;
-	gl32::GLuint m_depthBuffer;
-	gl32::GLuint m_framebuffer;
+	gl::GLuint m_depthBuffer;
+	gl::GLuint m_framebuffer;
 };
