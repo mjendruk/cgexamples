@@ -18,6 +18,9 @@ public:
 	void unbind();
 	void commit();
 
+	ovrTextureSwapChain textureChain();
+	ovrSizei size() const;
+
 private:
 	bool m_valid;
 	ovrSession m_session;

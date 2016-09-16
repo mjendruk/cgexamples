@@ -19,6 +19,7 @@
 
 #include <cgutils/common.h>
 
+#include "eyeframebuffer.h"
 #include "skytriangle.h"
 
 
@@ -65,9 +66,6 @@ int Compare(const ovrGraphicsLuid & lhs, const ovrGraphicsLuid & rhs)
 
 auto example = SkyTriangle();
 
-const auto canvasWidth = 1440; // in pixel
-const auto canvasHeight = 900; // in pixel
-
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
 void resizeCallback(GLFWwindow * window, int width, int height)
@@ -105,7 +103,7 @@ void errorCallback(int errnum, const char * errmsg)
 
 int main(int /*argc*/, char ** /*argv*/)
 {
-    const auto result = ovr_Initialize(nullptr);
+    auto result = ovr_Initialize(nullptr);
 
     if (OVR_FAILURE(result))
     {
@@ -114,7 +112,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	ovrSession session;
 	ovrGraphicsLuid luid;
-	ovrResult result = ovr_Create(&session, &luid);
+	result = ovr_Create(&session, &luid);
 	if (OVR_FAILURE(result))
 	{
 		ovr_Shutdown();
@@ -144,7 +142,10 @@ int main(int /*argc*/, char ** /*argv*/)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow * window = glfwCreateWindow(canvasWidth, canvasHeight, "", nullptr, nullptr);
+	auto hmdDesc = ovr_GetHmdDesc(session);
+	auto windowSize = ovrSizei{hmdDesc.Resolution.w/2, hmdDesc.Resolution.h/2};
+
+    GLFWwindow * window = glfwCreateWindow(windowSize.w, windowSize.h, "", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();
@@ -164,7 +165,27 @@ int main(int /*argc*/, char ** /*argv*/)
 
     glfwMakeContextCurrent(window);
 
-    glbinding::Binding::initialize(false);
+	glbinding::Binding::initialize(false);
+
+    std::array<std::unique_ptr<EyeFramebuffer>, 2u> eyeFramebuffers;
+
+    for (auto eye = 0u; eye < 2u; ++eye)
+    {
+        const auto idealTextureSize = ovr_GetFovTextureSize(session, ovrEyeType(eye), hmdDesc.DefaultEyeFov[eye], 1);
+		eyeFramebuffers[eye] = std::make_unique<EyeFramebuffer>(session, idealTextureSize);
+
+		if (!eyeFramebuffers[eye]->valid())
+		{
+			eyeFramebuffers = {};
+			glfwTerminate();
+			ovr_Destroy(session);
+			ovr_Shutdown();
+			return 6;
+		}
+    }
+
+	// Turn off vsync to let the compositor do its magic
+	// wglSwapIntervalEXT(0);
 
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
@@ -173,14 +194,78 @@ int main(int /*argc*/, char ** /*argv*/)
 
     while (!glfwWindowShouldClose(window)) // main loop
     {
+		auto frameIndex = 0ll;
+
         glfwPollEvents();
 
-        example.render();
+		ovrSessionStatus sessionStatus;
+		ovr_GetSessionStatus(session, &sessionStatus);
+		if (sessionStatus.ShouldQuit)
+		{
+			// Because the application is requested to quit, should not request retry
+			break;
+		}
+
+		if (sessionStatus.ShouldRecenter)
+			ovr_RecenterTrackingOrigin(session);
+
+		if (sessionStatus.IsVisible)
+		{
+			// Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
+			ovrEyeRenderDesc eyeRenderDesc[2];
+			eyeRenderDesc[0] = ovr_GetRenderDesc(session, ovrEye_Left, hmdDesc.DefaultEyeFov[0]);
+			eyeRenderDesc[1] = ovr_GetRenderDesc(session, ovrEye_Right, hmdDesc.DefaultEyeFov[1]);
+
+			// Get eye poses, feeding in correct IPD offset
+			ovrPosef EyeRenderPose[2];
+			ovrVector3f HmdToEyeOffset[2] = { eyeRenderDesc[0].HmdToEyeOffset, eyeRenderDesc[1].HmdToEyeOffset };
+
+			auto sensorSampleTime = 0.0;    // sensorSampleTime is fed into the layer later
+			ovr_GetEyePoses(session, frameIndex, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
+
+			for (auto eye = 0u; eye < 2u; ++eye)
+			{
+				eyeFramebuffers[eye]->bindAndClear();
+
+				example.render();
+
+				eyeFramebuffers[eye]->unbind();
+
+				eyeFramebuffers[eye]->commit();
+			}
+
+			// Do distortion rendering, Present and flush/sync
+
+			ovrLayerEyeFov ld;
+			ld.Header.Type = ovrLayerType_EyeFov;
+			ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
+
+			for (int eye = 0; eye < 2; ++eye)
+			{
+				ld.ColorTexture[eye] = eyeFramebuffers[eye]->textureChain();
+				ld.Viewport[eye] = { ovrVector2i{}, eyeFramebuffers[eye]->size() };
+				ld.Fov[eye] = hmdDesc.DefaultEyeFov[eye];
+				ld.RenderPose[eye] = EyeRenderPose[eye];
+				ld.SensorSampleTime = sensorSampleTime;
+			}
+
+			auto layers = &ld.Header;
+			result = ovr_SubmitFrame(session, frameIndex, nullptr, &layers, 1);
+			// exit the rendering loop if submit returns an error, will retry on ovrError_DisplayLost
+			if (OVR_FAILURE(result))
+			{
+				break;
+			}
+
+			++frameIndex;
+		}
 
         glfwSwapBuffers(window);
     }
 
     example.cleanup();
+
+	eyeFramebuffers = {};
 
     glfwMakeContextCurrent(nullptr);
 

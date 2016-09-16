@@ -99,3 +99,13 @@ void EyeFramebuffer::commit()
 {
 	ovr_CommitTextureSwapChain(m_session, m_textureChain);
 }
+
+ovrTextureSwapChain EyeFramebuffer::textureChain()
+{
+	return m_textureChain;
+}
+
+ovrSizei EyeFramebuffer::size() const
+{
+	return m_size;
+}
