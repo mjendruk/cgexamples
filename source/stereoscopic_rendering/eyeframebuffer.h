@@ -24,8 +24,26 @@ public:
 private:
 	bool m_valid;
 	ovrSession m_session;
+
 	ovrSizei m_size;
 	ovrTextureSwapChain m_textureChain;
 	gl::GLuint m_depthBuffer;
+	gl::GLuint m_framebuffer;
+};
+
+class MirrorFramebuffer
+{
+public:
+	MirrorFramebuffer(ovrSession session, const ovrSizei & windowSize);
+	~MirrorFramebuffer();
+
+	bool init();
+
+	void blit(gl::GLuint destFramebuffer);
+
+private:
+	ovrSession m_session;
+	ovrSizei m_size;
+	ovrMirrorTexture m_texture;
 	gl::GLuint m_framebuffer;
 };

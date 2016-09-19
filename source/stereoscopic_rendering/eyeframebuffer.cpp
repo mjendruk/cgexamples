@@ -9,12 +9,12 @@
 using namespace gl32core;
 
 EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
-:	m_session(session)
-,	m_size(textureSize)
-,	m_valid(true)
+:   m_session(session)
+,   m_size(textureSize)
+,   m_valid(true)
 {
-	auto desc = ovrTextureSwapChainDesc();
-	desc.Type = ovrTexture_2D;
+    auto desc = ovrTextureSwapChainDesc();
+    desc.Type = ovrTexture_2D;
     desc.ArraySize = 1;
     desc.Width = m_size.w;
     desc.Height = m_size.h;
@@ -27,8 +27,8 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
 
     if (OVR_FAILURE(result))
     {
-    	m_valid = false;
-    	return;
+        m_valid = false;
+        return;
     }
 
     auto length = 0;
@@ -36,11 +36,11 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
 
     for (auto i = 0; i < length; ++i)
     {
-    	auto texture = GLuint();
-    	ovr_GetTextureSwapChainBufferGL(m_session, m_textureChain, i, &texture);
-    	glBindTexture(GL_TEXTURE_2D, texture);
+        auto texture = GLuint();
+        ovr_GetTextureSwapChainBufferGL(m_session, m_textureChain, i, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
 
-    	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -55,7 +55,7 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_size.w, m_size.h, 0, 
-    	GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
+        GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
 
     glGenFramebuffers(1, &m_framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
@@ -64,13 +64,13 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
 
 EyeFramebuffer::~EyeFramebuffer()
 {
-	ovr_DestroyTextureSwapChain(m_session, m_textureChain);
-	glDeleteTextures(1, &m_depthBuffer);
+    ovr_DestroyTextureSwapChain(m_session, m_textureChain);
+    glDeleteTextures(1, &m_depthBuffer);
 }
 
 bool EyeFramebuffer::valid() const
 {
-	return m_valid;
+    return m_valid;
 };
 
 void EyeFramebuffer::bindAndClear()
@@ -86,27 +86,76 @@ void EyeFramebuffer::bindAndClear()
     glViewport(0, 0, m_size.w, m_size.h);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_FRAMEBUFFER_SRGB);
-	glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
 };
 
 void EyeFramebuffer::unbind()
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void EyeFramebuffer::commit()
 {
-	ovr_CommitTextureSwapChain(m_session, m_textureChain);
+    ovr_CommitTextureSwapChain(m_session, m_textureChain);
 }
 
 ovrTextureSwapChain EyeFramebuffer::textureChain()
 {
-	return m_textureChain;
+    return m_textureChain;
 }
 
 ovrSizei EyeFramebuffer::size() const
 {
-	return m_size;
+    return m_size;
+}
+
+MirrorFramebuffer::MirrorFramebuffer(ovrSession session, const ovrSizei & windowSize)
+:   m_session(session)
+,   m_size(windowSize)
+{
+}
+
+MirrorFramebuffer::~MirrorFramebuffer()
+{
+    glDeleteFramebuffers(1, &m_framebuffer);
+    ovr_DestroyMirrorTexture(m_session, m_texture);
+}
+
+bool MirrorFramebuffer::init()
+{
+    auto mirrorDesc = ovrMirrorTextureDesc();
+    mirrorDesc.Width = m_size.w;
+    mirrorDesc.Height = m_size.h;
+    mirrorDesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
+
+    auto mirrorTexture = static_cast<ovrMirrorTexture>(nullptr);
+
+    auto result = ovr_CreateMirrorTextureGL(m_session, &mirrorDesc, &mirrorTexture);
+    if (OVR_FAILURE(result))
+    {
+        return false;
+    }
+
+	auto textureID = GLuint{0u};
+    ovr_GetMirrorTextureBufferGL(m_session, mirrorTexture, &textureID);
+
+	auto m_framebuffer = GLuint{0u};
+    
+    glGenFramebuffers(1, &m_framebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, mirrorFBO);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
+    glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+}
+
+void MirrorFramebuffer::blit(GLuint destFramebuffer)
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destFramebuffer);
+    auto w = static_cast<GLint>(windowSize.w);
+    auto h = static_cast<GLint>(windowSize.h);
+    glBlitFramebuffer(0, h, w, 0, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
