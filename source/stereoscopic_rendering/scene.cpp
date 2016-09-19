@@ -181,12 +181,6 @@ void Scene::loadUniformLocations()
     glUseProgram(0);
 }
 
-void Scene::resize(int w, int h)
-{
-    m_width = w;
-    m_height = h;
-}
-
 void Scene::render(const glm::mat4 & view, const glm::mat4 & projection)
 {
     glUseProgram(m_programs[0]);
@@ -195,26 +189,37 @@ void Scene::render(const glm::mat4 & view, const glm::mat4 & projection)
 
     // draw
 
-	static const auto translations = std::array<glm::vec3, 4>{ {
+	static const auto icosahedronTranslations = std::array<glm::vec3, 4>{ {
 		glm::vec3(-4.0f, -1.0f, 0.0f),
-		glm::vec3(3.0f, 1.0f, 0.0f),
+		glm::vec3(4.0f, 0.5f, 0.0f),
 		glm::vec3(-1.0f, -1.8f, -3.5f),
 		glm::vec3(2.0f, -1.0f, 2.0f)}};
 
-	for (auto i = 0; i < translations.size(); ++i)
+	for (auto i = 0; i < icosahedronTranslations.size(); ++i)
 	{
-		auto model = glm::translate(translations[i] * 10.0f) * glm::scale(glm::vec3(10.0f));
+		auto model = glm::translate(icosahedronTranslations[i]);
 		glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));
 
 		m_object->draw();
 	}
 
-    auto model = glm::scale(glm::vec3(200.0f, 60.0f, 160.0));
-    glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));
+	static const auto cubeTranslations = std::array<glm::vec3, 2>{ {
+		glm::vec3(0.0f, 0.0f, 0.0),
+		glm::vec3(4.0f, -1.0f, 0.0f)}};
 
-    glBindVertexArray(m_vaos[0]);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 14);
-    glBindVertexArray(0);
+	static const auto cubeScalings = std::array<glm::vec3, 2>{ {
+		glm::vec3(20.0f, 6.0f, 16.0),
+		glm::vec3(1.0f, 1.0f, 1.0f)}};
+
+	for (auto i = 0; i < cubeTranslations.size(); ++i)
+	{
+		auto model = glm::translate(cubeTranslations[i]) * glm::scale(cubeScalings[i]);
+		glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));
+
+		glBindVertexArray(m_vaos[0]);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 14);
+		glBindVertexArray(0);
+	}
 
     glUseProgram(0);
 }

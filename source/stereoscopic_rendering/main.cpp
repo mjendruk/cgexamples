@@ -8,6 +8,7 @@
 // Oculus SDK for rendering to the Oculus Rift
 #include "OVR_CAPI_GL.h"
 #include "Extras/OVR_Math.h"
+#include <Extras/OVR_StereoProjection.h>
 
 #if defined(_WIN32)
     #include <dxgi.h> // for GetDefaultAdapterLuid
@@ -87,7 +88,6 @@ Scene example;
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
 void resizeCallback(GLFWwindow * window, int width, int height)
 {
-    example.resize(width, height);
 }
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
@@ -118,12 +118,12 @@ void errorCallback(int errnum, const char * errmsg)
 
 int main(int /*argc*/, char ** /*argv*/)
 {
-    auto result = ovr_Initialize(nullptr);
+	auto result = ovr_Initialize(nullptr);
 
-    if (OVR_FAILURE(result))
-    {
-        return 1;
-    }
+	if (OVR_FAILURE(result))
+	{
+		return 1;
+	}
 
 	ovrSession session;
 	ovrGraphicsLuid luid;
@@ -141,52 +141,52 @@ int main(int /*argc*/, char ** /*argv*/)
 		return 3; // OpenGL supports only the default graphics adapter.
 	}
 
-    if (!glfwInit())
-    {
+	if (!glfwInit())
+	{
 		ovr_Destroy(session);
 		ovr_Shutdown();
-        return 4;
-    }
+		return 4;
+	}
 
-    glfwSetErrorCallback(errorCallback);
+	glfwSetErrorCallback(errorCallback);
 
-    glfwDefaultWindowHints();
+	glfwDefaultWindowHints();
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	auto hmdDesc = ovr_GetHmdDesc(session);
-	auto windowSize = ovrSizei{hmdDesc.Resolution.w/2, hmdDesc.Resolution.h/2};
+	auto windowSize = ovrSizei{ hmdDesc.Resolution.w / 2, hmdDesc.Resolution.h / 2 };
 
-    GLFWwindow * window = glfwCreateWindow(windowSize.w, windowSize.h, "", nullptr, nullptr);
-    if (!window)
-    {
-        glfwTerminate();
+	GLFWwindow * window = glfwCreateWindow(windowSize.w, windowSize.h, "", nullptr, nullptr);
+	if (!window)
+	{
+		glfwTerminate();
 		ovr_Destroy(session);
 		ovr_Shutdown();
-        return 5;
-    }
+		return 5;
+	}
 
-    glfwSetFramebufferSizeCallback(window, resizeCallback);
-    glfwSetKeyCallback(window, keyCallback);
+	glfwSetFramebufferSizeCallback(window, resizeCallback);
+	glfwSetKeyCallback(window, keyCallback);
 
-    std::cout << "Sky Triangle (no Skybox)" << std::endl << std::endl;
+	std::cout << "Sky Triangle (no Skybox)" << std::endl << std::endl;
 
-    std::cout << "Key Binding: " << std::endl
-        << "  [F5] reload shaders" << std::endl
-        << std::endl;
+	std::cout << "Key Binding: " << std::endl
+		<< "  [F5] reload shaders" << std::endl
+		<< std::endl;
 
-    glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(window);
 
 	glbinding::Binding::initialize(false);
 
-    std::array<std::unique_ptr<EyeFramebuffer>, 2u> eyeFramebuffers;
+	std::array<std::unique_ptr<EyeFramebuffer>, 2u> eyeFramebuffers;
 
-    for (auto eye = 0u; eye < 2u; ++eye)
-    {
-        const auto idealTextureSize = ovr_GetFovTextureSize(session, ovrEyeType(eye), hmdDesc.DefaultEyeFov[eye], 1);
+	for (auto eye = 0u; eye < 2u; ++eye)
+	{
+		const auto idealTextureSize = ovr_GetFovTextureSize(session, ovrEyeType(eye), hmdDesc.DefaultEyeFov[eye], 1);
 		eyeFramebuffers[eye] = std::make_unique<EyeFramebuffer>(session, idealTextureSize);
 
 		if (!eyeFramebuffers[eye]->valid())
@@ -197,12 +197,42 @@ int main(int /*argc*/, char ** /*argv*/)
 			ovr_Shutdown();
 			return 6;
 		}
-    }
+	}
+
+	ovrMirrorTextureDesc mirrorDesc;
+	mirrorDesc.Width = windowSize.w;
+	mirrorDesc.Height = windowSize.h;
+	mirrorDesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
+
+	ovrMirrorTexture mirrorTexture = nullptr;
+
+	result = ovr_CreateMirrorTextureGL(session, &mirrorDesc, &mirrorTexture);
+	if (OVR_FAILURE(result))
+	{
+		eyeFramebuffers = {};
+		glfwTerminate();
+		ovr_Destroy(session);
+		ovr_Shutdown();
+		return 7;
+	}
+
+	gl::GLuint textureID = 0u;
+	ovr_GetMirrorTextureBufferGL(session, mirrorTexture, &textureID);
+
+	gl::GLuint mirrorFBO = 0u;
+	
+	gl::glGenFramebuffers(1, &mirrorFBO);
+	gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, mirrorFBO);
+	gl::glFramebufferTexture2D(gl::GL_READ_FRAMEBUFFER, gl::GL_COLOR_ATTACHMENT0, gl::GL_TEXTURE_2D, textureID, 0);
+	gl::glFramebufferRenderbuffer(gl::GL_READ_FRAMEBUFFER, gl::GL_DEPTH_ATTACHMENT, gl::GL_RENDERBUFFER, 0);
+	gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, 0);
 
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);
 
-    example.resize(hmdDesc.Resolution.w, hmdDesc.Resolution.h);
+	// FloorLevel will give tracking poses where the floor height is 0
+	ovr_SetTrackingOriginType(session, ovrTrackingOrigin_FloorLevel);
+
     example.initialize();
 
     while (!glfwWindowShouldClose(window)) // main loop
@@ -246,7 +276,7 @@ int main(int /*argc*/, char ** /*argv*/)
 				OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(EyeRenderPose[eye].Position);
 
 				const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
-				const auto projection = ovrMatrix4f_Projection(hmdDesc.DefaultEyeFov[eye], 0.2f, 1000.0f, ovrProjection_None);
+				const auto projection = OVR::CreateProjection(false, true, hmdDesc.DefaultEyeFov[eye], OVR::StereoEye_Center, 0.2f, 100.0f, ovrProjection_None);
 
 				example.render(toGlm(view), toGlm(projection));
 
@@ -281,7 +311,17 @@ int main(int /*argc*/, char ** /*argv*/)
 			++frameIndex;
 		}
 
-        // glfwSwapBuffers(window);
+		// Blit mirror texture to back buffer
+		gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, mirrorFBO);
+		gl::glBindFramebuffer(gl::GL_DRAW_FRAMEBUFFER, 0);
+		gl::GLint w = windowSize.w;
+		gl::GLint h = windowSize.h;
+		gl::glBlitFramebuffer(0, h, w, 0,
+			0, 0, w, h,
+			gl::GL_COLOR_BUFFER_BIT, gl::GL_NEAREST);
+		gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, 0);
+
+        glfwSwapBuffers(window);
     }
 
 	eyeFramebuffers = {};

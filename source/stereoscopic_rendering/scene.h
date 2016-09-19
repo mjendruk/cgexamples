@@ -21,7 +21,6 @@ public:
     void initialize();
     bool loadShaders();
 
-    void resize(int w, int h);
     void render(const glm::mat4 & view, const glm::mat4 & projection);
 
 protected:
