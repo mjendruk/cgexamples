@@ -45,8 +45,8 @@ set(sources
     icosahedron.h
     scene.cpp
     scene.h
-    ${data}/skytriangle.frag
-    ${data}/skytriangle.vert
+    ${data}/icosahedron.frag
+    ${data}/icosahedron.vert
 )
 
 

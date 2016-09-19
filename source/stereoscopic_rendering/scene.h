@@ -25,16 +25,20 @@ public:
     void render(const glm::mat4 & view, const glm::mat4 & projection);
 
 protected:
+    void initCubeVertexArray();
     void loadUniformLocations();
 
 protected:
+    std::unique_ptr<Icosahedron> m_object;
+
+    std::array<gl::GLuint, 1> m_vaos;
+    std::array<gl::GLuint, 1> m_vbos;
+
     std::array<gl::GLuint, 1> m_programs;
     std::array<gl::GLuint, 1> m_vertexShaders;
     std::array<gl::GLuint, 1> m_fragmentShaders;
 
     std::array<gl::GLuint, 2> m_uniformLocations;
-
-	std::unique_ptr<Icosahedron> m_object;
 
     int m_width;
     int m_height;
