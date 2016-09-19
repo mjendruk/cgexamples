@@ -114,6 +114,8 @@ ovrSizei EyeFramebuffer::size() const
 MirrorFramebuffer::MirrorFramebuffer(ovrSession session, const ovrSizei & windowSize)
 :   m_session(session)
 ,   m_size(windowSize)
+,   m_texture(nullptr)
+,   m_framebuffer(0u)
 {
 }
 
@@ -130,32 +132,28 @@ bool MirrorFramebuffer::init()
     mirrorDesc.Height = m_size.h;
     mirrorDesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
 
-    auto mirrorTexture = static_cast<ovrMirrorTexture>(nullptr);
-
-    auto result = ovr_CreateMirrorTextureGL(m_session, &mirrorDesc, &mirrorTexture);
+    auto result = ovr_CreateMirrorTextureGL(m_session, &mirrorDesc, &m_texture);
     if (OVR_FAILURE(result))
-    {
         return false;
-    }
 
 	auto textureID = GLuint{0u};
-    ovr_GetMirrorTextureBufferGL(m_session, mirrorTexture, &textureID);
-
-	auto m_framebuffer = GLuint{0u};
+    ovr_GetMirrorTextureBufferGL(m_session, m_texture, &textureID);
     
     glGenFramebuffers(1, &m_framebuffer);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, mirrorFBO);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
     glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
     glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    return true;
 }
 
 void MirrorFramebuffer::blit(GLuint destFramebuffer)
 {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destFramebuffer);
-    auto w = static_cast<GLint>(windowSize.w);
-    auto h = static_cast<GLint>(windowSize.h);
+    auto w = static_cast<GLint>(m_size.w);
+    auto h = static_cast<GLint>(m_size.h);
     glBlitFramebuffer(0, h, w, 0, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }

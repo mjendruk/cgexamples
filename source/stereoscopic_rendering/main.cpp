@@ -199,15 +199,9 @@ int main(int /*argc*/, char ** /*argv*/)
 		}
 	}
 
-	ovrMirrorTextureDesc mirrorDesc;
-	mirrorDesc.Width = windowSize.w;
-	mirrorDesc.Height = windowSize.h;
-	mirrorDesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
+	auto mirrorFramebuffer = std::make_unique<MirrorFramebuffer>(session, windowSize);
 
-	ovrMirrorTexture mirrorTexture = nullptr;
-
-	result = ovr_CreateMirrorTextureGL(session, &mirrorDesc, &mirrorTexture);
-	if (OVR_FAILURE(result))
+	if (!mirrorFramebuffer->init())
 	{
 		eyeFramebuffers = {};
 		glfwTerminate();
@@ -215,17 +209,6 @@ int main(int /*argc*/, char ** /*argv*/)
 		ovr_Shutdown();
 		return 7;
 	}
-
-	gl::GLuint textureID = 0u;
-	ovr_GetMirrorTextureBufferGL(session, mirrorTexture, &textureID);
-
-	gl::GLuint mirrorFBO = 0u;
-	
-	gl::glGenFramebuffers(1, &mirrorFBO);
-	gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, mirrorFBO);
-	gl::glFramebufferTexture2D(gl::GL_READ_FRAMEBUFFER, gl::GL_COLOR_ATTACHMENT0, gl::GL_TEXTURE_2D, textureID, 0);
-	gl::glFramebufferRenderbuffer(gl::GL_READ_FRAMEBUFFER, gl::GL_DEPTH_ATTACHMENT, gl::GL_RENDERBUFFER, 0);
-	gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, 0);
 
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);
@@ -312,14 +295,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		}
 
 		// Blit mirror texture to back buffer
-		gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, mirrorFBO);
-		gl::glBindFramebuffer(gl::GL_DRAW_FRAMEBUFFER, 0);
-		gl::GLint w = windowSize.w;
-		gl::GLint h = windowSize.h;
-		gl::glBlitFramebuffer(0, h, w, 0,
-			0, 0, w, h,
-			gl::GL_COLOR_BUFFER_BIT, gl::GL_NEAREST);
-		gl::glBindFramebuffer(gl::GL_READ_FRAMEBUFFER, 0);
+		mirrorFramebuffer->blit(0);
 
         glfwSwapBuffers(window);
     }
