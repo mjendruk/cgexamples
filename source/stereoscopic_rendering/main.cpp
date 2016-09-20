@@ -213,8 +213,6 @@ int main(int /*argc*/, char ** /*argv*/)
 		return 7;
 	}
 
-    auto headTracking = std::make_unique<HeadTracking>(session, hmdDesc);
-
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);
 
@@ -241,7 +239,8 @@ int main(int /*argc*/, char ** /*argv*/)
 
 		if (sessionStatus.IsVisible)
 		{
-			const auto eyePoses = headTracking->queryEyePoses(frameIndex);
+            auto sampleTime = 0.0;
+			const auto eyePoses = queryEyePoses(session, frameIndex, &sampleTime);
 
 			for (auto eye = 0; eye < ovrEye_Count; ++eye)
 			{
@@ -268,7 +267,7 @@ int main(int /*argc*/, char ** /*argv*/)
 				ld.Viewport[eye] = { ovrVector2i{}, eyeFramebuffers[eye]->size() };
 				ld.Fov[eye] = hmdDesc.DefaultEyeFov[eye];
 				ld.RenderPose[eye] = eyePoses[eye];
-				ld.SensorSampleTime = headTracking->latestSampleTime();
+				ld.SensorSampleTime = sampleTime;
 			}
 
 			auto layers = &ld.Header;

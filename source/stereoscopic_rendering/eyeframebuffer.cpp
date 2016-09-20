@@ -175,20 +175,15 @@ void MirrorFramebuffer::blit(GLuint destFramebuffer)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
-HeadTracking::HeadTracking(ovrSession session, const ovrHmdDesc & hmdDesc)
-:   m_session(session)
-,   m_hmdDesc(hmdDesc)
-,   m_sampleTime(0.0)
-{
-}
-
-std::array<ovrPosef, 2u> HeadTracking::queryEyePoses(long long frameIndex)
+std::array<ovrPosef, 2u> queryEyePoses(ovrSession session, long long frameIndex, double * sampleTime)
 {
     // Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
     auto descriptors = std::array<ovrEyeRenderDesc, ovrEye_Count>();
     
+    const auto hmdDesc = ovr_GetHmdDesc(session);
+
     for (auto eye = 0; eye < ovrEye_Count; ++eye)
-        descriptors[eye] = ovr_GetRenderDesc(m_session, static_cast<ovrEyeType>(eye), m_hmdDesc.DefaultEyeFov[eye]);
+        descriptors[eye] = ovr_GetRenderDesc(session, static_cast<ovrEyeType>(eye), hmdDesc.DefaultEyeFov[eye]);
 
     // Get eye poses, feeding in correct IPD offset
     auto poses = std::array<ovrPosef, ovrEye_Count>();
@@ -196,14 +191,9 @@ std::array<ovrPosef, 2u> HeadTracking::queryEyePoses(long long frameIndex)
         descriptors[0].HmdToEyeOffset,
         descriptors[1].HmdToEyeOffset}};
 
-    ovr_GetEyePoses(m_session, frameIndex, ovrTrue, offsets.data(), poses.data(), &m_sampleTime);
+    ovr_GetEyePoses(session, frameIndex, ovrTrue, offsets.data(), poses.data(), sampleTime);
     
     return poses;
-}
-
-double HeadTracking::latestSampleTime() const
-{
-    return m_sampleTime;
 }
 
 OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose)

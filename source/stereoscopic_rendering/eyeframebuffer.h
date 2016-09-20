@@ -57,22 +57,7 @@ private:
 	gl::GLuint m_framebuffer;
 };
 
-
-class HeadTracking
-{
-public:
-    HeadTracking(ovrSession session, const ovrHmdDesc & hmdDesc);
-
-    std::array<ovrPosef, ovrEye_Count> queryEyePoses(long long frameIndex);
-    double latestSampleTime() const;
-
-private:
-    ovrSession m_session;
-    ovrHmdDesc m_hmdDesc;
-    double m_sampleTime;
-};
+std::array<ovrPosef, ovrEye_Count> queryEyePoses(ovrSession session, long long frameIndex, double * sampleTime);
 
 OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose);
 OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov);
-
-void prepareLayerAndSubmit()
