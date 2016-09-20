@@ -64,6 +64,53 @@ std::array<glm::vec3, 28u> cubeVertices()
         vertices[2], normals[4]}};
 }
 
+std::array<glm::mat4, 6u> chairMatrices()
+{
+    static const auto chair = std::array<glm::vec3, 12>{{
+        glm::vec3(-0.32f, 0.5f, -0.32f), glm::vec3(0.32f, 0.55f, 0.32f), // Chair Set
+        glm::vec3(-0.3f, 0.0f, -0.3f), glm::vec3(-0.24f, 1.0f, -0.24f), // Chair Leg 1
+        glm::vec3(-0.3f, 0.5f, 0.3f), glm::vec3(-0.24f, 0.0f, 0.24f), // Chair Leg 2
+        glm::vec3(0.3f, 0.0f, 0.3f), glm::vec3(0.24f, 0.5f, 0.24f), // Chair Leg 2
+        glm::vec3(0.3f, 1.0f, -0.3f), glm::vec3(0.24f, 0.0f, -0.24f), // Chair Leg 2
+        glm::vec3(-0.29f, 0.97f, -0.26f), glm::vec3(0.29f, 0.92f, -0.29f)}}; // Chair Back high bar
+
+    auto matrices = std::array<glm::mat4, 6u>();
+
+    for (auto i = 0u; i < matrices.size(); ++i)
+    {
+        const auto j = i * 2;
+        const auto translation = (chair[j] + chair[j + 1]) * 0.5f;
+        const auto scale = (chair[j + 1] - chair[j]);
+
+        matrices[i] = glm::translate(translation) * glm::scale(scale);
+    }
+
+    return matrices;
+}
+
+std::array<glm::mat4, 5u> tableMatrices()
+{
+    static const auto table = std::array<glm::vec3, 10>{ {
+        glm::vec3(-0.65f, 0.97f, -0.45f), glm::vec3(0.65f, 0.92f, 0.45f),
+        glm::vec3(-0.6f, 0.97f, -0.4f), glm::vec3(-0.55f, 0.0f, -0.35f),
+        glm::vec3(0.55f, 0.97f, -0.35f), glm::vec3(0.6f, 0.0f, -0.4f),
+        glm::vec3(-0.6f, 0.97f, 0.35f), glm::vec3(-0.55f, 0.0f, 0.4f),
+        glm::vec3(0.55f, 0.97f, 0.35f), glm::vec3(0.6f, 0.0f, 0.4f)}};
+
+    auto matrices = std::array<glm::mat4, 5u>();
+
+    for (auto i = 0u; i < matrices.size(); ++i)
+    {
+        const auto j = i * 2;
+        const auto translation = (table[j] + table[j + 1]) * 0.5f;
+        const auto scale = (table[j + 1] - table[j]);
+
+        matrices[i] = glm::translate(translation) * glm::scale(scale);
+    }
+
+    return matrices;
+}
+
 }
 
 Scene::Scene()
@@ -105,7 +152,7 @@ void Scene::initialize()
 
     loadShaders();
 
-    m_object = std::make_unique<Icosahedron>(1);
+    m_object = std::make_unique<Icosahedron>(3);
 }
 
 void Scene::initCubeVertexArray()
@@ -178,6 +225,7 @@ void Scene::loadUniformLocations()
     glUseProgram(m_programs[0]);
     m_uniformLocations[0] = glGetUniformLocation(m_programs[0], "modelView");
     m_uniformLocations[1] = glGetUniformLocation(m_programs[0], "projection");
+    m_uniformLocations[2] = glGetUniformLocation(m_programs[0], "color");
     glUseProgram(0);
 }
 
@@ -189,11 +237,11 @@ void Scene::render(const glm::mat4 & view, const glm::mat4 & projection)
 
     // draw
 
-	static const auto icosahedronTranslations = std::array<glm::vec3, 4>{ {
-		glm::vec3(-4.0f, -1.0f, 0.0f),
-		glm::vec3(4.0f, 0.5f, 0.0f),
-		glm::vec3(-1.0f, -1.8f, -3.5f),
-		glm::vec3(2.0f, -1.0f, 2.0f)}};
+    auto color = glm::vec3(0.80, 0.78, 0.27);
+    glUniform3fv(m_uniformLocations[2], 1, glm::value_ptr(color));
+
+	static const auto icosahedronTranslations = std::array<glm::vec3, 1u>{ {
+		glm::vec3(2.0f, 3.0f, 4.0f)}};
 
 	for (auto i = 0; i < icosahedronTranslations.size(); ++i)
 	{
@@ -203,15 +251,18 @@ void Scene::render(const glm::mat4 & view, const glm::mat4 & projection)
 		m_object->draw();
 	}
 
-	static const auto cubeTranslations = std::array<glm::vec3, 2>{ {
-		glm::vec3(0.0f, 0.0f, 0.0),
-		glm::vec3(4.0f, -1.0f, 0.0f)}};
+    color = glm::vec3(0.60, 0.60, 0.51);
+    glUniform3fv(m_uniformLocations[2], 1, glm::value_ptr(color));
 
-	static const auto cubeScalings = std::array<glm::vec3, 2>{ {
-		glm::vec3(20.0f, 6.0f, 16.0),
-		glm::vec3(1.0f, 1.0f, 1.0f)}};
+	static const auto cubeTranslations = std::array<glm::vec3, 2u>{ {
+		glm::vec3(0.0f, 4.0f, 0.0),
+        glm::vec3(2.0f, 6.0f, 4.0f)}};
 
-	for (auto i = 0; i < cubeTranslations.size(); ++i)
+	static const auto cubeScalings = std::array<glm::vec3, 2u>{ {
+		glm::vec3(16.0f, 8.0f, 20.0),
+        glm::vec3(0.07f, 6.0f, 0.07f)}};
+
+	for (auto i = 0u; i < cubeTranslations.size(); ++i)
 	{
 		auto model = glm::translate(cubeTranslations[i]) * glm::scale(cubeScalings[i]);
 		glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));
@@ -220,6 +271,44 @@ void Scene::render(const glm::mat4 & view, const glm::mat4 & projection)
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 14);
 		glBindVertexArray(0);
 	}
+
+    static const auto chair = chairMatrices();
+    static const auto table = tableMatrices();
+
+    static const auto tableChairPairs = std::array<glm::vec3, 6u>{ {
+        glm::vec3(-0.0f, 0.0f, 0.0f),
+        glm::vec3(-2.0f, 0.0f, 0.0f),
+        glm::vec3(-4.0f, 0.0f, 0.0f),
+        glm::vec3(-0.0f, 0.0f, 3.0f),
+        glm::vec3(-2.0f, 0.0f, 3.0f),
+        glm::vec3(-4.0f, 0.0f, 3.0f)}};
+
+    color = glm::vec3(1.00, 0.53, 0.44);
+    glUniform3fv(m_uniformLocations[2], 1, glm::value_ptr(color));
+
+    for (auto j = 0u; j < tableChairPairs.size(); ++j)
+    {
+        const auto translation = glm::translate(tableChairPairs[j]);
+        for (auto i = 0u; i < chair.size(); ++i)
+        {
+            auto model = translation * chair[i];
+            glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));
+
+            glBindVertexArray(m_vaos[0]);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 14);
+            glBindVertexArray(0);
+        }
+
+        for (auto i = 0u; i < table.size(); ++i)
+        {
+            auto model = translation * glm::translate(glm::vec3(0.0f, 0.0f, 1.0f)) * table[i];
+            glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));
+
+            glBindVertexArray(m_vaos[0]);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 14);
+            glBindVertexArray(0);
+        }
+    }
 
     glUseProgram(0);
 }

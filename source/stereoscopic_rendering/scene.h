@@ -37,7 +37,7 @@ protected:
     std::array<gl::GLuint, 1> m_vertexShaders;
     std::array<gl::GLuint, 1> m_fragmentShaders;
 
-    std::array<gl::GLuint, 2> m_uniformLocations;
+    std::array<gl::GLuint, 3> m_uniformLocations;
 
     int m_width;
     int m_height;
