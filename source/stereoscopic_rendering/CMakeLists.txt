@@ -39,10 +39,10 @@ set(data "${CMAKE_SOURCE_DIR}/data/${target}")
 set(sources
     main.cpp
 
-    eyeframebuffer.cpp
-    eyeframebuffer.h
     icosahedron.cpp
     icosahedron.h
+    ovr.cpp
+    ovr.h
     scene.cpp
     scene.h
     ${data}/icosahedron.frag

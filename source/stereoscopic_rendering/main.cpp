@@ -24,7 +24,7 @@
 
 #include <cgutils/common.h>
 
-#include "eyeframebuffer.h"
+#include "ovr.h"
 #include "scene.h"
 
 
