@@ -8,10 +8,39 @@
 
 using namespace gl32core;
 
+EyeFramebuffer::Pair EyeFramebuffer::createPair(ovrSession session, const ovrHmdDesc & hmdDesc, bool * ok)
+{
+    Pair pair;
+
+    for (auto eye = 0u; eye < 2u; ++eye)
+    {
+        const auto idealTextureSize = ovr_GetFovTextureSize(session, ovrEyeType(eye), hmdDesc.DefaultEyeFov[eye], 1);
+        pair[eye] = std::make_unique<EyeFramebuffer>(session, idealTextureSize);
+
+        if (!pair[eye]->init())
+        {   
+            *ok = false;
+            return Pair();
+        }
+    }
+
+    *ok = true;
+    return pair;
+}
+
 EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
 :   m_session(session)
 ,   m_size(textureSize)
-,   m_valid(true)
+{
+};
+
+EyeFramebuffer::~EyeFramebuffer()
+{
+    ovr_DestroyTextureSwapChain(m_session, m_textureChain);
+    glDeleteTextures(1, &m_depthBuffer);
+}
+
+bool EyeFramebuffer::init()
 {
     auto desc = ovrTextureSwapChainDesc();
     desc.Type = ovrTexture_2D;
@@ -26,10 +55,7 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
     auto result = ovr_CreateTextureSwapChainGL(m_session, &desc, &m_textureChain);
 
     if (OVR_FAILURE(result))
-    {
-        m_valid = false;
-        return;
-    }
+        return false;
 
     auto length = 0;
     ovr_GetTextureSwapChainLength(m_session, m_textureChain, &length);
@@ -54,24 +80,15 @@ EyeFramebuffer::EyeFramebuffer(ovrSession session, const ovrSizei & textureSize)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_size.w, m_size.h, 0, 
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_size.w, m_size.h, 0,
         GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
 
     glGenFramebuffers(1, &m_framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthBuffer, 0);
-};
 
-EyeFramebuffer::~EyeFramebuffer()
-{
-    ovr_DestroyTextureSwapChain(m_session, m_textureChain);
-    glDeleteTextures(1, &m_depthBuffer);
+    return true;
 }
-
-bool EyeFramebuffer::valid() const
-{
-    return m_valid;
-};
 
 void EyeFramebuffer::bindAndClear()
 {

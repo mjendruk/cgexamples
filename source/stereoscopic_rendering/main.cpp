@@ -82,6 +82,15 @@ glm::mat4 toGlm(const OVR::Matrix4f & mat)
 		mat.M[0][3], mat.M[1][3], mat.M[2][3], mat.M[3][3]);
 }
 
+glm::mat4 toGlm2(const OVR::Matrix4f & mat)
+{
+    return glm::mat4(
+        mat.M[0][0], mat.M[0][1], mat.M[0][2], mat.M[0][3],
+        mat.M[1][0], mat.M[1][1], mat.M[1][2], mat.M[1][3],
+        mat.M[2][0], mat.M[2][1], mat.M[2][2], mat.M[2][3],
+        mat.M[3][0], mat.M[3][1], mat.M[3][2], mat.M[3][3]);
+}
+
 Scene example;
 
 // "The size callback ... which is called when the window is resized."
@@ -182,22 +191,16 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	glbinding::Binding::initialize(false);
 
-	std::array<std::unique_ptr<EyeFramebuffer>, 2u> eyeFramebuffers;
+    auto ok = true;
+    auto eyeFramebuffers = EyeFramebuffer::createPair(session, hmdDesc, &ok);
 
-	for (auto eye = 0u; eye < 2u; ++eye)
-	{
-		const auto idealTextureSize = ovr_GetFovTextureSize(session, ovrEyeType(eye), hmdDesc.DefaultEyeFov[eye], 1);
-		eyeFramebuffers[eye] = std::make_unique<EyeFramebuffer>(session, idealTextureSize);
-
-		if (!eyeFramebuffers[eye]->valid())
-		{
-			eyeFramebuffers = {};
-			glfwTerminate();
-			ovr_Destroy(session);
-			ovr_Shutdown();
-			return 6;
-		}
-	}
+    if (!ok)
+    {
+        glfwTerminate();
+        ovr_Destroy(session);
+        ovr_Shutdown();
+        return 6;
+    }
 
 	auto mirrorFramebuffer = std::make_unique<MirrorFramebuffer>(session, windowSize);
 
@@ -237,29 +240,32 @@ int main(int /*argc*/, char ** /*argv*/)
 		if (sessionStatus.IsVisible)
 		{
 			// Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
-			ovrEyeRenderDesc eyeRenderDesc[2];
-			eyeRenderDesc[0] = ovr_GetRenderDesc(session, ovrEye_Left, hmdDesc.DefaultEyeFov[0]);
-			eyeRenderDesc[1] = ovr_GetRenderDesc(session, ovrEye_Right, hmdDesc.DefaultEyeFov[1]);
+            ovrEyeRenderDesc eyeRenderDesc[2];
+            eyeRenderDesc[0] = ovr_GetRenderDesc(session, ovrEye_Left, hmdDesc.DefaultEyeFov[0]);
+            eyeRenderDesc[1] = ovr_GetRenderDesc(session, ovrEye_Right, hmdDesc.DefaultEyeFov[1]);
 
 			// Get eye poses, feeding in correct IPD offset
-			ovrPosef EyeRenderPose[2];
-			ovrVector3f HmdToEyeOffset[2] = { eyeRenderDesc[0].HmdToEyeOffset, eyeRenderDesc[1].HmdToEyeOffset };
+            ovrPosef                  EyeRenderPose[2];
+            ovrVector3f               HmdToEyeOffset[2] = { eyeRenderDesc[0].HmdToEyeOffset,
+                                                            eyeRenderDesc[1].HmdToEyeOffset };
 
-			auto sensorSampleTime = 0.0;    // sensorSampleTime is fed into the layer later
-			ovr_GetEyePoses(session, frameIndex, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
+			double sensorSampleTime;    // sensorSampleTime is fed into the layer later
+            ovr_GetEyePoses(session, frameIndex, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
 
 			for (auto eye = 0u; eye < 2u; ++eye)
 			{
 				eyeFramebuffers[eye]->bindAndClear();
 
+                static float Yaw(3.141592f);
 				// Get view and projection matrices
-				OVR::Matrix4f rollPitchYaw = OVR::Matrix4f(EyeRenderPose[eye].Orientation);
-				OVR::Vector3f finalUp = rollPitchYaw.Transform(OVR::Vector3f(0, 1, 0));
-				OVR::Vector3f finalForward = rollPitchYaw.Transform(OVR::Vector3f(0, 0, -1));
-				OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(EyeRenderPose[eye].Position);
+                OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(Yaw);
+                OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(EyeRenderPose[eye].Orientation);
+                OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0, 1, 0));
+                OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0, 0, -1));
+                OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(EyeRenderPose[eye].Position);
 
 				const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
-				const auto projection = OVR::CreateProjection(false, true, hmdDesc.DefaultEyeFov[eye], OVR::StereoEye_Center, 0.2f, 100.0f, ovrProjection_None);
+				const auto projection = OVR::CreateProjection(false, true, hmdDesc.DefaultEyeFov[eye], static_cast<OVR::StereoEye>(eye), 0.2f, 1000.0f, ovrProjection_None);
 
 				example.render(toGlm(view), toGlm(projection));
 

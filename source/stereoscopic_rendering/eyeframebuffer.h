@@ -3,16 +3,24 @@
 
 #include "OVR_CAPI_GL.h"
 
+#include <array>
+#include <memory>
+
 #include <glbinding/gl/types.h>
 
 
 class EyeFramebuffer
 {
 public:
+    using Pair = std::array<std::unique_ptr<EyeFramebuffer>, 2u>;
+
+    static Pair createPair(ovrSession session, const ovrHmdDesc & hmdDesc, bool * ok);
+
+public:
 	EyeFramebuffer(ovrSession session, const ovrSizei & textureSize);
 	~EyeFramebuffer();
 
-	bool valid() const;
+	bool init();
 
 	void bindAndClear();
 	void unbind();
@@ -22,7 +30,6 @@ public:
 	ovrSizei size() const;
 
 private:
-	bool m_valid;
 	ovrSession m_session;
 
 	ovrSizei m_size;
