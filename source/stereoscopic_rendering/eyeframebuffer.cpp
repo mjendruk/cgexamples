@@ -12,7 +12,7 @@ EyeFramebuffer::Pair EyeFramebuffer::createPair(ovrSession session, const ovrHmd
 {
     Pair pair;
 
-    for (auto eye = 0u; eye < 2u; ++eye)
+    for (auto eye = 0; eye < ovrEye_Count; ++eye)
     {
         const auto idealTextureSize = ovr_GetFovTextureSize(session, ovrEyeType(eye), hmdDesc.DefaultEyeFov[eye], 1);
         pair[eye] = std::make_unique<EyeFramebuffer>(session, idealTextureSize);
@@ -173,4 +173,56 @@ void MirrorFramebuffer::blit(GLuint destFramebuffer)
     auto h = static_cast<GLint>(m_size.h);
     glBlitFramebuffer(0, h, w, 0, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+}
+
+HeadTracking::HeadTracking(ovrSession session, const ovrHmdDesc & hmdDesc)
+:   m_session(session)
+,   m_hmdDesc(hmdDesc)
+,   m_sampleTime(0.0)
+{
+}
+
+std::array<ovrPosef, 2u> HeadTracking::queryEyePoses(long long frameIndex)
+{
+    // Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
+    auto descriptors = std::array<ovrEyeRenderDesc, ovrEye_Count>();
+    
+    for (auto eye = 0; eye < ovrEye_Count; ++eye)
+        descriptors[eye] = ovr_GetRenderDesc(m_session, static_cast<ovrEyeType>(eye), m_hmdDesc.DefaultEyeFov[eye]);
+
+    // Get eye poses, feeding in correct IPD offset
+    auto poses = std::array<ovrPosef, ovrEye_Count>();
+    const auto offsets = std::array<ovrVector3f, ovrEye_Count>{{
+        descriptors[0].HmdToEyeOffset,
+        descriptors[1].HmdToEyeOffset}};
+
+    ovr_GetEyePoses(m_session, frameIndex, ovrTrue, offsets.data(), poses.data(), &m_sampleTime);
+    
+    return poses;
+}
+
+double HeadTracking::latestSampleTime() const
+{
+    return m_sampleTime;
+}
+
+OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose)
+{
+    static auto yaw = 3.141592f;
+
+    // align OVR and OpenGL coordinate systems
+    OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(yaw);
+    OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(pose.Orientation);
+    OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 1.0f, 0.0f));
+    OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 0.0f, -1.0f));
+    OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(pose.Position);
+
+    const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
+
+    return view;
+}
+
+OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov)
+{
+    return ovrMatrix4f_Projection(fov, 0.2f, 1000.0f, ovrProjection_None);
 }

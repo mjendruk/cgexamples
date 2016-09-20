@@ -213,6 +213,8 @@ int main(int /*argc*/, char ** /*argv*/)
 		return 7;
 	}
 
+    auto headTracking = std::make_unique<HeadTracking>(session, hmdDesc);
+
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);
 
@@ -239,38 +241,18 @@ int main(int /*argc*/, char ** /*argv*/)
 
 		if (sessionStatus.IsVisible)
 		{
-			// Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
-            ovrEyeRenderDesc eyeRenderDesc[2];
-            eyeRenderDesc[0] = ovr_GetRenderDesc(session, ovrEye_Left, hmdDesc.DefaultEyeFov[0]);
-            eyeRenderDesc[1] = ovr_GetRenderDesc(session, ovrEye_Right, hmdDesc.DefaultEyeFov[1]);
+			const auto eyePoses = headTracking->queryEyePoses(frameIndex);
 
-			// Get eye poses, feeding in correct IPD offset
-            ovrPosef                  EyeRenderPose[2];
-            ovrVector3f               HmdToEyeOffset[2] = { eyeRenderDesc[0].HmdToEyeOffset,
-                                                            eyeRenderDesc[1].HmdToEyeOffset };
-
-			double sensorSampleTime;    // sensorSampleTime is fed into the layer later
-            ovr_GetEyePoses(session, frameIndex, ovrTrue, HmdToEyeOffset, EyeRenderPose, &sensorSampleTime);
-
-			for (auto eye = 0u; eye < 2u; ++eye)
+			for (auto eye = 0; eye < ovrEye_Count; ++eye)
 			{
 				eyeFramebuffers[eye]->bindAndClear();
 
-                static float Yaw(3.141592f);
-				// Get view and projection matrices
-                OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(Yaw);
-                OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(EyeRenderPose[eye].Orientation);
-                OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0, 1, 0));
-                OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0, 0, -1));
-                OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(EyeRenderPose[eye].Position);
-
-				const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
-				const auto projection = OVR::CreateProjection(false, true, hmdDesc.DefaultEyeFov[eye], static_cast<OVR::StereoEye>(eye), 0.2f, 1000.0f, ovrProjection_None);
+				const auto view = getViewMatrixForPose(eyePoses[eye]);
+				const auto projection = getProjectionMatrixForFOV(hmdDesc.DefaultEyeFov[eye]);
 
 				example.render(toGlm(view), toGlm(projection));
 
 				eyeFramebuffers[eye]->unbind();
-
 				eyeFramebuffers[eye]->commit();
 			}
 
@@ -280,13 +262,13 @@ int main(int /*argc*/, char ** /*argv*/)
 			ld.Header.Type = ovrLayerType_EyeFov;
 			ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
 
-			for (int eye = 0; eye < 2; ++eye)
+			for (auto eye = 0; eye < ovrEye_Count; ++eye)
 			{
 				ld.ColorTexture[eye] = eyeFramebuffers[eye]->textureChain();
 				ld.Viewport[eye] = { ovrVector2i{}, eyeFramebuffers[eye]->size() };
 				ld.Fov[eye] = hmdDesc.DefaultEyeFov[eye];
-				ld.RenderPose[eye] = EyeRenderPose[eye];
-				ld.SensorSampleTime = sensorSampleTime;
+				ld.RenderPose[eye] = eyePoses[eye];
+				ld.SensorSampleTime = headTracking->latestSampleTime();
 			}
 
 			auto layers = &ld.Header;
