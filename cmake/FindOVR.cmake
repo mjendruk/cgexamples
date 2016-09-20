@@ -44,10 +44,9 @@ ENDIF()
 find_library(OVR_LIBRARY NAMES LibOVR
 
     PATHS
-    $ENV{OVR_DIR}
+    $ENV{OVR_DIR}/lib/Windows/${OVR_BUILD_DIR}/${OCULUS_MSVC_DIR}
 
     # authors prefered choice for development
-    /lib/Windows/${OVR_BUILD_DIR}/${OCULUS_MSVC_DIR}
 
     DOC "The OVR library")
 
@@ -70,4 +69,3 @@ find_library(OVR_LIBRARY NAMES LibOVR
 # endif()
     
 find_package_handle_standard_args(OVR REQUIRED_VARS OVR_INCLUDE_DIR OVR_LIBRARY)
-# mark_as_advanced(OVR_INCLUDE_DIR OVR_LIBRARY)
