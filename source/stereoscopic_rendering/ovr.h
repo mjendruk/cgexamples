@@ -1,8 +1,10 @@
 
 #pragma once
 
+// Oculus SDK for rendering to the Oculus Rift
 #include "OVR_CAPI_GL.h"
 #include "Extras/OVR_Math.h"
+#include <Extras/OVR_StereoProjection.h>
 
 #include <array>
 #include <functional>

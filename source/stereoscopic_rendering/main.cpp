@@ -5,16 +5,6 @@
 // input and events http://www.glfw.org/ 
 #include <GLFW/glfw3.h> 
 
-// Oculus SDK for rendering to the Oculus Rift
-#include "OVR_CAPI_GL.h"
-#include "Extras/OVR_Math.h"
-#include <Extras/OVR_StereoProjection.h>
-
-#if defined(_WIN32)
-    #include <dxgi.h> // for GetDefaultAdapterLuid
-    #pragma comment(lib, "dxgi.lib")
-#endif
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -34,48 +24,6 @@
 // unit, and have internal linkage."
 namespace
 {
-
-ovrGraphicsLuid GetDefaultAdapterLuid()
-{
-    ovrGraphicsLuid luid = ovrGraphicsLuid();
-
-    #if defined(_WIN32)
-        IDXGIFactory* factory = nullptr;
-
-        if (SUCCEEDED(CreateDXGIFactory(IID_PPV_ARGS(&factory))))
-        {
-            IDXGIAdapter* adapter = nullptr;
-
-            if (SUCCEEDED(factory->EnumAdapters(0, &adapter)))
-            {
-                DXGI_ADAPTER_DESC desc;
-
-                adapter->GetDesc(&desc);
-                memcpy(&luid, &desc.AdapterLuid, sizeof(luid));
-                adapter->Release();
-            }
-
-            factory->Release();
-        }
-    #endif
-
-    return luid;
-}
-
-
-int Compare(const ovrGraphicsLuid & lhs, const ovrGraphicsLuid & rhs)
-{
-    return memcmp(&lhs, &rhs, sizeof(ovrGraphicsLuid));
-}
-
-glm::mat4 toGlm(const OVR::Matrix4f & mat)
-{
-	return glm::mat4(
-		mat.M[0][0], mat.M[1][0], mat.M[2][0], mat.M[3][0],
-		mat.M[0][1], mat.M[1][1], mat.M[2][1], mat.M[3][1],
-		mat.M[0][2], mat.M[1][2], mat.M[2][2], mat.M[3][2],
-		mat.M[0][3], mat.M[1][3], mat.M[2][3], mat.M[3][3]);
-}
 
 Scene example;
 
@@ -100,7 +48,6 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
     }
 }
 
-
 // "In case a GLFW function fails, an error is reported to the GLFW 
 // error callback. You can receive these reports with an error
 // callback." http://www.glfw.org/docs/latest/quick.html#quick_capture_error
@@ -113,33 +60,8 @@ void errorCallback(int errnum, const char * errmsg)
 
 int main(int /*argc*/, char ** /*argv*/)
 {
-	auto result = ovr_Initialize(nullptr);
-
-	if (OVR_FAILURE(result))
-	{
-		return 1;
-	}
-
-	ovrSession session;
-	ovrGraphicsLuid luid;
-	result = ovr_Create(&session, &luid);
-	if (OVR_FAILURE(result))
-	{
-		ovr_Shutdown();
-		return 2;
-	}
-
-	if (Compare(luid, GetDefaultAdapterLuid())) // If luid that the Rift is on is not the default adapter LUID...
-	{
-		ovr_Destroy(session);
-		ovr_Shutdown();
-		return 3; // OpenGL supports only the default graphics adapter.
-	}
-
 	if (!glfwInit())
 	{
-		ovr_Destroy(session);
-		ovr_Shutdown();
 		return 4;
 	}
 
@@ -152,15 +74,12 @@ int main(int /*argc*/, char ** /*argv*/)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	auto hmdDesc = ovr_GetHmdDesc(session);
-	auto windowSize = ovrSizei{ hmdDesc.Resolution.w / 2, hmdDesc.Resolution.h / 2 };
+	auto windowSize = ovrSizei{ 1280, 720 };
 
 	GLFWwindow * window = glfwCreateWindow(windowSize.w, windowSize.h, "", nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
-		ovr_Destroy(session);
-		ovr_Shutdown();
 		return 5;
 	}
 
@@ -177,112 +96,35 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	glbinding::Binding::initialize(false);
 
-    auto ok = true;
-    auto eyeFramebuffers = EyeFramebuffer::createPair(session, hmdDesc, &ok);
+    auto renderer = std::make_unique<OculusRiftRenderer>();
 
-    if (!ok)
+    if (!renderer->init())
     {
         glfwTerminate();
-        ovr_Destroy(session);
-        ovr_Shutdown();
         return 6;
     }
-
-	auto mirrorFramebuffer = std::make_unique<MirrorFramebuffer>(session, windowSize);
-
-	if (!mirrorFramebuffer->init())
-	{
-		eyeFramebuffers = {};
-		glfwTerminate();
-		ovr_Destroy(session);
-		ovr_Shutdown();
-		return 7;
-	}
 
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);
 
-	// FloorLevel will give tracking poses where the floor height is 0
-	ovr_SetTrackingOriginType(session, ovrTrackingOrigin_FloorLevel);
-
     example.initialize();
-
-    auto frameIndex = 0ll;
 
     while (!glfwWindowShouldClose(window)) // main loop
     {
         glfwPollEvents();
 
-		ovrSessionStatus sessionStatus;
-		ovr_GetSessionStatus(session, &sessionStatus);
-		if (sessionStatus.ShouldQuit)
-		{
-			break;
-		}
-
-		if (sessionStatus.ShouldRecenter)
-			ovr_RecenterTrackingOrigin(session);
-
-		if (sessionStatus.IsVisible)
-		{
-            auto sampleTime = 0.0;
-			const auto eyePoses = queryEyePoses(session, frameIndex, &sampleTime);
-
-			for (auto eye = 0; eye < ovrEye_Count; ++eye)
-			{
-				eyeFramebuffers[eye]->bindAndClear();
-
-				const auto view = getViewMatrixForPose(eyePoses[eye]);
-				const auto projection = getProjectionMatrixForFOV(hmdDesc.DefaultEyeFov[eye]);
-
-				example.render(toGlm(view), toGlm(projection));
-
-				eyeFramebuffers[eye]->unbind();
-				eyeFramebuffers[eye]->commit();
-			}
-
-			// Do distortion rendering, Present and flush/sync
-
-			ovrLayerEyeFov ld;
-			ld.Header.Type = ovrLayerType_EyeFov;
-			ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
-
-			for (auto eye = 0; eye < ovrEye_Count; ++eye)
-			{
-				ld.ColorTexture[eye] = eyeFramebuffers[eye]->textureChain();
-				ld.Viewport[eye] = { ovrVector2i{}, eyeFramebuffers[eye]->size() };
-				ld.Fov[eye] = hmdDesc.DefaultEyeFov[eye];
-				ld.RenderPose[eye] = eyePoses[eye];
-				ld.SensorSampleTime = sampleTime;
-			}
-
-			auto layers = &ld.Header;
-			result = ovr_SubmitFrame(session, frameIndex, nullptr, &layers, 1);
-
-			if (OVR_FAILURE(result))
-			{
-				break;
-			}
-
-			++frameIndex;
-		}
-
-		// Blit mirror texture to back buffer
-		mirrorFramebuffer->blit(0);
+		renderer->render(example);
 
         glfwSwapBuffers(window);
     }
 
-	eyeFramebuffers = {};
+	renderer = nullptr;
 
     glfwMakeContextCurrent(nullptr);
 
     glfwDestroyWindow(window);
 
     glfwTerminate();
-
-	ovr_Destroy(session);
-    ovr_Shutdown();
 
     return 0;
 }
