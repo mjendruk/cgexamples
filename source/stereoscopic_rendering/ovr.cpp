@@ -228,48 +228,6 @@ void MirrorFramebuffer::blit(GLuint destFramebuffer)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
 
-std::array<ovrPosef, 2u> queryEyePoses(ovrSession session, long long frameIndex, double * sampleTime)
-{
-    // Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
-    auto descriptors = std::array<ovrEyeRenderDesc, ovrEye_Count>();
-    
-    const auto hmdDesc = ovr_GetHmdDesc(session);
-
-    for (auto eye = 0; eye < ovrEye_Count; ++eye)
-        descriptors[eye] = ovr_GetRenderDesc(session, static_cast<ovrEyeType>(eye), hmdDesc.DefaultEyeFov[eye]);
-
-    // Get eye poses, feeding in correct IPD offset
-    auto poses = std::array<ovrPosef, ovrEye_Count>();
-    const auto offsets = std::array<ovrVector3f, ovrEye_Count>{{
-        descriptors[0].HmdToEyeOffset,
-        descriptors[1].HmdToEyeOffset}};
-
-    ovr_GetEyePoses(session, frameIndex, ovrTrue, offsets.data(), poses.data(), sampleTime);
-    
-    return poses;
-}
-
-OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose)
-{
-    static auto yaw = 3.141592f;
-
-    // align OVR and OpenGL coordinate systems
-    OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(yaw);
-    OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(pose.Orientation);
-    OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 1.0f, 0.0f));
-    OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 0.0f, -1.0f));
-    OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(pose.Position);
-
-    const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
-
-    return view;
-}
-
-OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov)
-{
-    return ovrMatrix4f_Projection(fov, 0.2f, 1000.0f, ovrProjection_None);
-}
-
 OculusRiftRenderer::OculusRiftRenderer()
 :   m_session(nullptr)
 ,   m_frameIndex(0ll)
@@ -337,7 +295,7 @@ bool OculusRiftRenderer::render(Scene & scene)
     {
         auto sampleTime = 0.0;
 
-        const auto eyePoses = queryEyePoses(m_session, m_frameIndex, &sampleTime);
+        const auto eyePoses = queryEyePoses(&sampleTime);
 
         for (auto eye = 0; eye < ovrEye_Count; ++eye)
         {
@@ -354,26 +312,7 @@ bool OculusRiftRenderer::render(Scene & scene)
             framebuffer->commit();
         }
 
-        // Do distortion rendering, Present and flush/sync
-
-        ovrLayerEyeFov ld;
-        ld.Header.Type = ovrLayerType_EyeFov;
-        ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
-
-        for (auto eye = 0; eye < ovrEye_Count; ++eye)
-        {
-            ld.ColorTexture[eye] = m_eyeFramebuffers[eye]->textureChain();
-            ld.Viewport[eye] = { ovrVector2i{}, m_eyeFramebuffers[eye]->size() };
-            ld.Fov[eye] = m_hmdDesc.DefaultEyeFov[eye];
-            ld.RenderPose[eye] = eyePoses[eye];
-            ld.SensorSampleTime = sampleTime;
-        }
-
-        auto layers = &ld.Header;
-        auto result = ovr_SubmitFrame(m_session, m_frameIndex, nullptr, &layers, 1);
-
-        if (OVR_FAILURE(result))
-            return false;
+        prepareLayerAndSubmit(eyePoses, sampleTime);
 
         ++m_frameIndex;
     }
@@ -382,4 +321,69 @@ bool OculusRiftRenderer::render(Scene & scene)
     m_mirrorFramebuffer->blit(0);
 
     return true;
+}
+
+std::array<ovrPosef, ovrEye_Count> OculusRiftRenderer::queryEyePoses(double * sampleTime)
+{
+    // Call ovr_GetRenderDesc each frame to get the ovrEyeRenderDesc, as the returned values (e.g. HmdToEyeOffset) may change at runtime.
+    auto descriptors = std::array<ovrEyeRenderDesc, ovrEye_Count>();
+
+    const auto hmdDesc = ovr_GetHmdDesc(m_session);
+
+    for (auto eye = 0; eye < ovrEye_Count; ++eye)
+        descriptors[eye] = ovr_GetRenderDesc(m_session, static_cast<ovrEyeType>(eye), hmdDesc.DefaultEyeFov[eye]);
+
+    // Get eye poses, feeding in correct IPD offset
+    auto poses = std::array<ovrPosef, ovrEye_Count>();
+    const auto offsets = std::array<ovrVector3f, ovrEye_Count>{ {
+            descriptors[0].HmdToEyeOffset,
+                descriptors[1].HmdToEyeOffset}};
+
+    ovr_GetEyePoses(m_session, m_frameIndex, ovrTrue, offsets.data(), poses.data(), sampleTime);
+
+    return poses;
+}
+
+bool OculusRiftRenderer::prepareLayerAndSubmit(const std::array<ovrPosef, ovrEye_Count> & eyePoses, double sampleTime)
+{
+    // Do distortion rendering, present and flush/sync
+
+    ovrLayerEyeFov ld;
+    ld.Header.Type = ovrLayerType_EyeFov;
+    ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
+
+    for (auto eye = 0; eye < ovrEye_Count; ++eye)
+    {
+        ld.ColorTexture[eye] = m_eyeFramebuffers[eye]->textureChain();
+        ld.Viewport[eye] = { ovrVector2i{}, m_eyeFramebuffers[eye]->size() };
+        ld.Fov[eye] = m_hmdDesc.DefaultEyeFov[eye];
+        ld.RenderPose[eye] = eyePoses[eye];
+        ld.SensorSampleTime = sampleTime;
+    }
+
+    auto layers = &ld.Header;
+    auto result = ovr_SubmitFrame(m_session, m_frameIndex, nullptr, &layers, 1);
+
+    return OVR_SUCCESS(result);
+}
+
+OVR::Matrix4f OculusRiftRenderer::getViewMatrixForPose(const ovrPosef & pose)
+{
+    static auto yaw = 3.141592f;
+
+    // align OVR and OpenGL coordinate systems
+    OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(yaw);
+    OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(pose.Orientation);
+    OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 1.0f, 0.0f));
+    OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 0.0f, -1.0f));
+    OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(pose.Position);
+
+    const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
+
+    return view;
+}
+
+OVR::Matrix4f OculusRiftRenderer::getProjectionMatrixForFOV(const ovrFovPort & fov)
+{
+    return ovrMatrix4f_Projection(fov, 0.2f, 1000.0f, ovrProjection_None);
 }

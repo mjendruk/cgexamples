@@ -62,10 +62,6 @@ private:
 	gl::GLuint m_framebuffer;
 };
 
-std::array<ovrPosef, ovrEye_Count> queryEyePoses(ovrSession session, long long frameIndex, double * sampleTime);
-
-OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose);
-OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov);
 
 class OculusRiftRenderer
 {
@@ -74,10 +70,17 @@ public:
     ~OculusRiftRenderer();
 
     bool init();
-
     bool render(Scene & scene);
 
-public:
+private:
+    std::array<ovrPosef, ovrEye_Count> queryEyePoses(double * sampleTime);
+    bool prepareLayerAndSubmit(const std::array<ovrPosef, ovrEye_Count> & eyePoses, double sampleTime);
+
+private:
+    static OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose);
+    static OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov);
+    
+private:
     ovrSession m_session;
     ovrHmdDesc m_hmdDesc;
     long long m_frameIndex;

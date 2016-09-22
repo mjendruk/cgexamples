@@ -62,7 +62,7 @@ int main(int /*argc*/, char ** /*argv*/)
 {
 	if (!glfwInit())
 	{
-		return 4;
+		return 1;
 	}
 
 	glfwSetErrorCallback(errorCallback);
@@ -80,7 +80,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	if (!window)
 	{
 		glfwTerminate();
-		return 5;
+		return 2;
 	}
 
 	glfwSetFramebufferSizeCallback(window, resizeCallback);
@@ -101,7 +101,7 @@ int main(int /*argc*/, char ** /*argv*/)
     if (!renderer->init())
     {
         glfwTerminate();
-        return 6;
+        return 3;
     }
 
 	// Turn off vsync to let the compositor do its magic
@@ -113,7 +113,8 @@ int main(int /*argc*/, char ** /*argv*/)
     {
         glfwPollEvents();
 
-		renderer->render(example);
+        if (!renderer->render(example))
+            break;
 
         glfwSwapBuffers(window);
     }
