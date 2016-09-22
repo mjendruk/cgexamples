@@ -5,9 +5,12 @@
 #include "Extras/OVR_Math.h"
 
 #include <array>
+#include <functional>
 #include <memory>
 
 #include <glbinding/gl/types.h>
+
+#include "Scene.h"
 
 
 class EyeFramebuffer
@@ -61,3 +64,22 @@ std::array<ovrPosef, ovrEye_Count> queryEyePoses(ovrSession session, long long f
 
 OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose);
 OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov);
+
+class OculusRiftRenderer
+{
+public:
+    OculusRiftRenderer();
+    ~OculusRiftRenderer();
+
+    bool init();
+
+    bool render(Scene & scene);
+
+public:
+    ovrSession m_session;
+    ovrHmdDesc m_hmdDesc;
+    long long m_frameIndex;
+
+    EyeFramebuffer::Pair m_eyeFramebuffers;
+    std::unique_ptr<MirrorFramebuffer> m_mirrorFramebuffer;
+};

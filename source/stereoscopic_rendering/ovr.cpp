@@ -3,10 +3,63 @@
 
 #include <cassert>
 
+#if defined(_WIN32)
+    #include <dxgi.h> // for GetDefaultAdapterLuid
+    #pragma comment(lib, "dxgi.lib")
+#endif
+
+#include <glm/glm.hpp>
+
 #include <glbinding/gl32core/gl.h>
 
 
 using namespace gl32core;
+
+namespace
+{
+
+ovrGraphicsLuid GetDefaultAdapterLuid()
+{
+    ovrGraphicsLuid luid = ovrGraphicsLuid();
+
+#if defined(_WIN32)
+    IDXGIFactory* factory = nullptr;
+
+    if (SUCCEEDED(CreateDXGIFactory(IID_PPV_ARGS(&factory))))
+    {
+        IDXGIAdapter* adapter = nullptr;
+
+        if (SUCCEEDED(factory->EnumAdapters(0, &adapter)))
+        {
+            DXGI_ADAPTER_DESC desc;
+
+            adapter->GetDesc(&desc);
+            memcpy(&luid, &desc.AdapterLuid, sizeof(luid));
+            adapter->Release();
+        }
+
+        factory->Release();
+    }
+#endif
+
+    return luid;
+}
+
+int Compare(const ovrGraphicsLuid & lhs, const ovrGraphicsLuid & rhs)
+{
+    return memcmp(&lhs, &rhs, sizeof(ovrGraphicsLuid));
+}
+
+glm::mat4 toGlm(const OVR::Matrix4f & mat)
+{
+    return glm::mat4(
+        mat.M[0][0], mat.M[1][0], mat.M[2][0], mat.M[3][0],
+        mat.M[0][1], mat.M[1][1], mat.M[2][1], mat.M[3][1],
+        mat.M[0][2], mat.M[1][2], mat.M[2][2], mat.M[3][2],
+        mat.M[0][3], mat.M[1][3], mat.M[2][3], mat.M[3][3]);
+}
+
+}
 
 EyeFramebuffer::Pair EyeFramebuffer::createPair(ovrSession session, const ovrHmdDesc & hmdDesc, bool * ok)
 {
@@ -215,4 +268,118 @@ OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose)
 OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov)
 {
     return ovrMatrix4f_Projection(fov, 0.2f, 1000.0f, ovrProjection_None);
+}
+
+OculusRiftRenderer::OculusRiftRenderer()
+:   m_session(nullptr)
+,   m_frameIndex(0ll)
+{
+}
+
+OculusRiftRenderer::~OculusRiftRenderer()
+{
+    m_eyeFramebuffers = {};
+    m_mirrorFramebuffer = nullptr;
+
+    if (m_session)
+        ovr_Destroy(m_session);
+
+    ovr_Shutdown();
+}
+
+bool OculusRiftRenderer::init()
+{
+    auto result = ovr_Initialize(nullptr);
+
+    if (OVR_FAILURE(result))
+        return false;
+
+    auto luid = ovrGraphicsLuid();
+    result = ovr_Create(&m_session, &luid);
+
+    if (OVR_FAILURE(result))
+        return false;
+
+    if (Compare(luid, GetDefaultAdapterLuid())) // If luid that the Rift is on is not the default adapter LUID...
+        return false; // OpenGL supports only the default graphics adapter.
+
+    m_hmdDesc = ovr_GetHmdDesc(m_session);
+
+    auto ok = true;
+    m_eyeFramebuffers = EyeFramebuffer::createPair(m_session, m_hmdDesc, &ok);
+
+    if (!ok)
+        return false;
+
+    const auto windowSize = ovrSizei{ m_hmdDesc.Resolution.w / 2, m_hmdDesc.Resolution.h / 2};
+    m_mirrorFramebuffer = std::make_unique<MirrorFramebuffer>(m_session, windowSize);
+
+    if (!m_mirrorFramebuffer->init())
+        return false;
+
+    ovr_SetTrackingOriginType(m_session, ovrTrackingOrigin_FloorLevel);
+
+    return true;
+}
+
+bool OculusRiftRenderer::render(Scene & scene)
+{
+    auto sessionStatus = ovrSessionStatus();
+    ovr_GetSessionStatus(m_session, &sessionStatus);
+
+    if (sessionStatus.ShouldQuit)
+        return false;
+
+    if (sessionStatus.ShouldRecenter)
+        ovr_RecenterTrackingOrigin(m_session);
+
+    if (sessionStatus.IsVisible)
+    {
+        auto sampleTime = 0.0;
+
+        const auto eyePoses = queryEyePoses(m_session, m_frameIndex, &sampleTime);
+
+        for (auto eye = 0; eye < ovrEye_Count; ++eye)
+        {
+            const auto & framebuffer = m_eyeFramebuffers[eye];
+
+            framebuffer->bindAndClear();
+
+            const auto view = getViewMatrixForPose(eyePoses[eye]);
+            const auto projection = getProjectionMatrixForFOV(m_hmdDesc.DefaultEyeFov[eye]);
+
+            scene.render(toGlm(view), toGlm(projection));
+
+            framebuffer->unbind();
+            framebuffer->commit();
+        }
+
+        // Do distortion rendering, Present and flush/sync
+
+        ovrLayerEyeFov ld;
+        ld.Header.Type = ovrLayerType_EyeFov;
+        ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
+
+        for (auto eye = 0; eye < ovrEye_Count; ++eye)
+        {
+            ld.ColorTexture[eye] = m_eyeFramebuffers[eye]->textureChain();
+            ld.Viewport[eye] = { ovrVector2i{}, m_eyeFramebuffers[eye]->size() };
+            ld.Fov[eye] = m_hmdDesc.DefaultEyeFov[eye];
+            ld.RenderPose[eye] = eyePoses[eye];
+            ld.SensorSampleTime = sampleTime;
+        }
+
+        auto layers = &ld.Header;
+        auto result = ovr_SubmitFrame(m_session, m_frameIndex, nullptr, &layers, 1);
+
+        if (OVR_FAILURE(result))
+            return false;
+
+        ++m_frameIndex;
+    }
+
+    // Blit mirror texture to back buffer
+    m_mirrorFramebuffer->blit(0);
+
+    return true;
 }

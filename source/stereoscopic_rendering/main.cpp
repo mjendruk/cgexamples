@@ -207,10 +207,10 @@ int main(int /*argc*/, char ** /*argv*/)
 
     example.initialize();
 
+    auto frameIndex = 0ll;
+
     while (!glfwWindowShouldClose(window)) // main loop
     {
-		auto frameIndex = 0ll;
-
         glfwPollEvents();
 
 		ovrSessionStatus sessionStatus;
