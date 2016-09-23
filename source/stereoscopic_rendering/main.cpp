@@ -6,7 +6,6 @@
 #include <GLFW/glfw3.h> 
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 // C++ binding for the OpenGL API. 
 // https://github.com/cginternals/glbinding
@@ -15,6 +14,7 @@
 #include <cgutils/common.h>
 
 #include "ovr.h"
+#include "squint.h"
 #include "scene.h"
 
 
@@ -26,11 +26,13 @@ namespace
 {
 
 Scene example;
+auto renderer = std::make_unique<SquintRenderer>();
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
 void resizeCallback(GLFWwindow * window, int width, int height)
 {
+    renderer->setSize(glm::ivec2(width, height));
 }
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
@@ -95,8 +97,6 @@ int main(int /*argc*/, char ** /*argv*/)
 	glfwMakeContextCurrent(window);
 
 	glbinding::Binding::initialize(false);
-
-    auto renderer = std::make_unique<OculusRiftRenderer>();
 
     if (!renderer->init())
     {

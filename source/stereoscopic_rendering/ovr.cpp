@@ -12,6 +12,7 @@
 
 #include <glbinding/gl32core/gl.h>
 
+#include "Scene.h"
 
 using namespace gl32core;
 
@@ -321,6 +322,10 @@ bool OculusRiftRenderer::render(Scene & scene)
     m_mirrorFramebuffer->blit(0);
 
     return true;
+}
+
+void OculusRiftRenderer::setSize(const glm::ivec2 & size)
+{
 }
 
 std::array<ovrPosef, ovrEye_Count> OculusRiftRenderer::queryEyePoses(double * sampleTime)

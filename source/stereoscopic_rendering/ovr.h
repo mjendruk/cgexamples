@@ -12,8 +12,10 @@
 
 #include <glbinding/gl/types.h>
 
-#include "Scene.h"
+#include "abstractrenderer.h"
 
+
+class Scene;
 
 class EyeFramebuffer
 {
@@ -63,14 +65,15 @@ private:
 };
 
 
-class OculusRiftRenderer
+class OculusRiftRenderer : public AbstractRenderer
 {
 public:
     OculusRiftRenderer();
     ~OculusRiftRenderer();
 
-    bool init();
-    bool render(Scene & scene);
+    bool init() override;
+    bool render(Scene & scene) override;
+    void setSize(const glm::ivec2 & size) override;
 
 private:
     std::array<ovrPosef, ovrEye_Count> queryEyePoses(double * sampleTime);
