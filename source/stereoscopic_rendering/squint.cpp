@@ -74,7 +74,7 @@ glm::mat4 SquintRenderer::getProjectionMatrix(float iod, float fov, float aspect
     const auto frustumShift = (iod * 0.5f) * zNear / viewportDepth;
     const auto orientedShift = frustumShift * shiftDirection;
 
-    const auto top = glm::tan(fov * 0.5f) * zNear;
+    const auto top = glm::tan(glm::radians(fov * 0.5f)) * zNear;
     const auto bottom = -top;
     const auto right = aspectRatio * top + orientedShift;
     const auto left = -aspectRatio * top + orientedShift;
