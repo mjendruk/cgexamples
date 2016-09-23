@@ -6,7 +6,7 @@
 find_package(GLM REQUIRED)
 find_package(GLFW)
 find_package(glbinding REQUIRED)
-find_package(OVR REQUIRED)
+find_package(OVR)
 
 
 # 
@@ -23,8 +23,7 @@ if (NOT GLFW_FOUND)
 endif()
 
 if (NOT OVR_FOUND)
-    message("${target} skipped: OVR not found")
-    return()
+    message("${target} will be built without OVR: libOVR not found")
 endif()
 
 message(STATUS "${target}")
@@ -42,8 +41,6 @@ set(sources
     abstractrenderer.h
     icosahedron.cpp
     icosahedron.h
-    ovr.cpp
-    ovr.h
     scene.cpp
     scene.h
     squint.cpp
@@ -52,6 +49,9 @@ set(sources
     ${data}/icosahedron.vert
 )
 
+if (OVR_FOUND)
+    set(sources ${sources} ovr.cpp ovr.h)
+endif()
 
 # 
 # Create executable
@@ -88,7 +88,7 @@ target_include_directories(${target}
     SYSTEM
     ${GLFW_INCLUDE_DIR}
     ${GLM_INCLUDE_DIR}
-    ${OVR_INCLUDE_DIR}
+    $<$<BOOL:${OVR_FOUND}>:${OVR_INCLUDE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
@@ -101,7 +101,7 @@ target_link_libraries(${target}
     PRIVATE
     ${DEFAULT_LIBRARIES}
     ${GLFW_LIBRARIES}
-    ${OVR_LIBRARY}
+    $<$<BOOL:${OVR_FOUND}>:${OVR_LIBRARY}>
     ${META_PROJECT_NAME}::cgutils
     glbinding::glbinding
 )
@@ -117,6 +117,7 @@ target_compile_definitions(${target}
     PUBLIC
     GLFW_INCLUDE_NONE
     GLM_FORCE_RADIANS
+    $<$<BOOL:${OVR_FOUND}>:USE_OVR>
 )
 
 

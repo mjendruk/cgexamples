@@ -67,6 +67,8 @@ glm::mat4 SquintRenderer::getViewMatrix(const glm::vec3 & eye, const glm::vec3 &
     return glm::lookAt(eye + orientedHalfIod, center + orientedHalfIod, up);
 }
 
+// https://www.packtpub.com/books/content/rendering-stereoscopic-3d-models-using-opengl
+// http://relativity.net.au/gaming/java/Frustum.html
 glm::mat4 SquintRenderer::getProjectionMatrix(float iod, float fov, float aspectRatio,
     float viewportDepth, float zNear, float zFar, bool isLeft)
 {

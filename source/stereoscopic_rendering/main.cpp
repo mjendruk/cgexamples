@@ -13,9 +13,12 @@
 
 #include <cgutils/common.h>
 
-#include "ovr.h"
 #include "squint.h"
 #include "scene.h"
+
+#ifdef USE_OVR
+    #include "ovr.h"
+#endif
 
 
 // From http://en.cppreference.com/w/cpp/language/namespace:
@@ -76,9 +79,9 @@ int main(int /*argc*/, char ** /*argv*/)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	auto windowSize = ovrSizei{ 1280, 720 };
+	auto windowSize = glm::ivec2(1280, 720);
 
-	GLFWwindow * window = glfwCreateWindow(windowSize.w, windowSize.h, "", nullptr, nullptr);
+	GLFWwindow * window = glfwCreateWindow(windowSize.x, windowSize.y, "", nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
