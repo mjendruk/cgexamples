@@ -29,14 +29,14 @@
 namespace
 {
 
-Scene example;
-auto renderer = make_unique<SideBySideRenderer>(true);
+auto g_example = make_unique<Scene>();
+auto g_renderer = make_unique<SideBySideRenderer>(true);
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
 void resizeCallback(GLFWwindow * window, int width, int height)
 {
-    renderer->setSize(glm::ivec2(width, height));
+    g_renderer->setSize(glm::ivec2(width, height));
 }
 
 // "The key callback ... which is called when a key is pressed, repeated or released."
@@ -49,7 +49,7 @@ void keyCallback(GLFWwindow * /*window*/, int key, int /*scancode*/, int action,
     switch (key)
     {
     case GLFW_KEY_F5:
-        example.loadShaders();
+        g_example->loadShaders();
         break;
     }
 }
@@ -102,30 +102,30 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	glbinding::Binding::initialize(false);
 
-    if (!renderer->init())
+    if (!g_renderer->init())
     {
         glfwTerminate();
         return 3;
     }
 
-    renderer->setSize(windowSize);
+    auto framebufferSize = glm::ivec2();
+    glfwGetFramebufferSize(window, &framebufferSize.x, &framebufferSize.y);
 
-	// Turn off vsync to let the compositor do its magic
-	// wglSwapIntervalEXT(0);
+    g_renderer->setSize(framebufferSize);
 
-    example.initialize();
+    g_example->initialize();
 
     while (!glfwWindowShouldClose(window)) // main loop
     {
         glfwPollEvents();
 
-        if (!renderer->render(example))
+        if (!g_renderer->render(*g_example))
             break;
 
         glfwSwapBuffers(window);
     }
 
-	renderer = nullptr;
+    g_renderer = nullptr;
 
     glfwMakeContextCurrent(nullptr);
 
