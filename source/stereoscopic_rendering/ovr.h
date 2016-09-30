@@ -15,6 +15,9 @@
 #include "abstractrenderer.h"
 
 
+// Rendering: https://developer3.oculus.com/documentation/pcsdk/latest/concepts/dg-render/
+// Head Tracking: https://developer3.oculus.com/documentation/pcsdk/latest/concepts/dg-sensor/
+
 class Scene;
 
 class EyeFramebuffer

@@ -72,6 +72,7 @@ glm::mat4 SideBySideRenderer::getViewMatrix(const glm::vec3 & eye, const glm::ve
 
 // https://www.packtpub.com/books/content/rendering-stereoscopic-3d-models-using-opengl
 // http://relativity.net.au/gaming/java/Frustum.html
+// https://en.wikipedia.org/wiki/Intercept_theorem
 glm::mat4 SideBySideRenderer::getProjectionMatrix(float iod, float fov, float aspectRatio,
     float viewportDepth, float zNear, float zFar, bool isLeft)
 {

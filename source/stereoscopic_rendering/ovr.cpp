@@ -106,7 +106,7 @@ bool EyeFramebuffer::init()
     desc.SampleCount = 1;
     desc.StaticImage = ovrFalse;
 
-    auto result = ovr_CreateTextureSwapChainGL(m_session, &desc, &m_textureChain);
+    const auto result = ovr_CreateTextureSwapChainGL(m_session, &desc, &m_textureChain);
 
     if (OVR_FAILURE(result))
         return false;
@@ -160,6 +160,10 @@ void EyeFramebuffer::bindAndClear()
     glEnable(GL_DEPTH_TEST);
 };
 
+// Avoids an error when calling SetAndClearRenderSurface during next iteration.
+// Without this, during the next while loop iteration SetAndClearRenderSurface
+// would bind a framebuffer with an invalid COLOR_ATTACHMENT0 because the texture ID
+// associated with COLOR_ATTACHMENT0 had been unlocked by calling wglDXUnlockObjectsNV.
 void EyeFramebuffer::unbind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
@@ -203,7 +207,7 @@ bool MirrorFramebuffer::init()
     mirrorDesc.Height = m_size.h;
     mirrorDesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
 
-    auto result = ovr_CreateMirrorTextureGL(m_session, &mirrorDesc, &m_texture);
+    const auto result = ovr_CreateMirrorTextureGL(m_session, &mirrorDesc, &m_texture);
     if (OVR_FAILURE(result))
         return false;
 
@@ -223,8 +227,8 @@ void MirrorFramebuffer::blit(GLuint destFramebuffer)
 {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destFramebuffer);
-    auto w = static_cast<GLint>(m_size.w);
-    auto h = static_cast<GLint>(m_size.h);
+    const auto w = static_cast<GLint>(m_size.w);
+    const auto h = static_cast<GLint>(m_size.h);
     glBlitFramebuffer(0, h, w, 0, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 }
@@ -353,21 +357,21 @@ bool OculusRiftRenderer::prepareLayerAndSubmit(const std::array<ovrPosef, ovrEye
 {
     // Do distortion rendering, present and flush/sync
 
-    ovrLayerEyeFov ld;
-    ld.Header.Type = ovrLayerType_EyeFov;
-    ld.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
+    auto layer = ovrLayerEyeFov();
+    layer.Header.Type = ovrLayerType_EyeFov;
+    layer.Header.Flags = ovrLayerFlag_TextureOriginAtBottomLeft;   // Because OpenGL.
 
     for (auto eye = 0; eye < ovrEye_Count; ++eye)
     {
-        ld.ColorTexture[eye] = m_eyeFramebuffers[eye]->textureChain();
-        ld.Viewport[eye] = { ovrVector2i{}, m_eyeFramebuffers[eye]->size() };
-        ld.Fov[eye] = m_hmdDesc.DefaultEyeFov[eye];
-        ld.RenderPose[eye] = eyePoses[eye];
-        ld.SensorSampleTime = sampleTime;
+        layer.ColorTexture[eye] = m_eyeFramebuffers[eye]->textureChain();
+        layer.Viewport[eye] = { ovrVector2i{}, m_eyeFramebuffers[eye]->size() };
+        layer.Fov[eye] = m_hmdDesc.DefaultEyeFov[eye];
+        layer.RenderPose[eye] = eyePoses[eye];
+        layer.SensorSampleTime = sampleTime;
     }
 
-    auto layers = &ld.Header;
-    auto result = ovr_SubmitFrame(m_session, m_frameIndex, nullptr, &layers, 1);
+    const auto layers = &layer.Header;
+    const auto result = ovr_SubmitFrame(m_session, m_frameIndex, nullptr, &layers, 1);
 
     return OVR_SUCCESS(result);
 }
@@ -377,11 +381,11 @@ OVR::Matrix4f OculusRiftRenderer::getViewMatrixForPose(const ovrPosef & pose)
     static auto yaw = 3.141592f;
 
     // align OVR and OpenGL coordinate systems
-    OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(yaw);
-    OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(pose.Orientation);
-    OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 1.0f, 0.0f));
-    OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 0.0f, -1.0f));
-    OVR::Vector3f shiftedEyePos = rollPitchYaw.Transform(pose.Position);
+    const auto rollPitchYaw = OVR::Matrix4f::RotationY(yaw);
+    const auto finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(pose.Orientation);
+    const auto finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 1.0f, 0.0f));
+    const auto finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0.0f, 0.0f, -1.0f));
+    const auto shiftedEyePos = rollPitchYaw.Transform(pose.Position);
 
     const auto view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
 
