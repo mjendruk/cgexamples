@@ -19,6 +19,7 @@
 #include <cgutils/common.h>
 
 #include "icosahedron.h"
+#include "make_unique.h"
 
 
 using namespace gl;
@@ -153,7 +154,7 @@ void Scene::initialize()
 
     loadShaders();
 
-    m_object = std::make_unique<Icosahedron>(3);
+    m_object = make_unique<Icosahedron>(3);
 }
 
 void Scene::initCubeVertexArray()

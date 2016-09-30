@@ -41,6 +41,7 @@ set(sources
     abstractrenderer.h
     icosahedron.cpp
     icosahedron.h
+    make_unique.h
     scene.cpp
     scene.h
     sidebyside.cpp

@@ -1,6 +1,5 @@
 
 #include <iostream>
-#include <memory>
 
 // C++ library for creating windows with OpenGL contexts and receiving 
 // input and events http://www.glfw.org/ 
@@ -14,6 +13,7 @@
 
 #include <cgutils/common.h>
 
+#include "make_unique.h"
 #include "sidebyside.h"
 #include "scene.h"
 
@@ -30,7 +30,7 @@ namespace
 {
 
 Scene example;
-auto renderer = std::make_unique<SideBySideRenderer>(true);
+auto renderer = make_unique<SideBySideRenderer>(true);
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
