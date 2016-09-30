@@ -100,18 +100,16 @@ Icosahedron::Icosahedron(const gl::GLsizei iterations, const gl::GLint positionL
 
     if (positionLocation >= 0)
     {
-		gl::glVertexAttribBinding(positionLocation, 0);
-		gl::glBindVertexBuffer(0, m_vertices, 0, sizeof(vec3));
-		gl::glVertexAttribFormat(0, 3, gl::GL_FLOAT, gl::GL_TRUE, 0);
-		gl::glEnableVertexAttribArray(0);
+        gl::glBindBuffer(gl::GL_ARRAY_BUFFER, m_vertices);
+        gl::glVertexAttribPointer(positionLocation, 3, gl::GL_FLOAT, gl::GL_FALSE, sizeof(vec3), nullptr);
+		gl::glEnableVertexAttribArray(positionLocation);
     }
 
     if (normalLocation >= 0)
     {
-		gl::glVertexAttribBinding(positionLocation, 1);
-		gl::glBindVertexBuffer(1, m_vertices, 0, sizeof(vec3));
-		gl::glVertexAttribFormat(1, 3, gl::GL_FLOAT, gl::GL_TRUE, 0);
-		gl::glEnableVertexAttribArray(1);
+        gl::glBindBuffer(gl::GL_ARRAY_BUFFER, m_vertices);
+        gl::glVertexAttribPointer(normalLocation, 3, gl::GL_FLOAT, gl::GL_FALSE, sizeof(vec3), nullptr);
+        gl::glEnableVertexAttribArray(normalLocation);
     }
 
 	gl::glBindVertexArray(0);

@@ -169,14 +169,12 @@ void Scene::initCubeVertexArray()
     glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribBinding(0, 0);
-    glBindVertexBuffer(0, m_vbos[0], 0, sizeof(glm::vec3) * 2);
-    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3) * 2, 0);
     glEnableVertexAttribArray(0);
-
-    glVertexAttribBinding(1, 1);
-    glBindVertexBuffer(1, m_vbos[0], sizeof(glm::vec3), sizeof(glm::vec3) * 2);
-    glVertexAttribFormat(1, 3, GL_FLOAT, GL_FALSE, 0);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3) * 2, reinterpret_cast<const void *>(sizeof(glm::vec3)));
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
