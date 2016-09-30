@@ -159,11 +159,11 @@ void Icosahedron::refine(
             const gl::GLushort bc(split(b, c, vertices, cache));
             const gl::GLushort ca(split(c, a, vertices, cache));
 
-            face = { ab, bc, ca };
+            face = {{ ab, bc, ca }};
 
-            indices.emplace_back(Face{ a, ab, ca });
-            indices.emplace_back(Face{ b, bc, ab });
-            indices.emplace_back(Face{ c, ca, bc });
+            indices.emplace_back(Face{{ a, ab, ca }});
+            indices.emplace_back(Face{{ b, bc, ab }});
+            indices.emplace_back(Face{{ c, ca, bc }});
         }
     }
 }

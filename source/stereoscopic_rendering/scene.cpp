@@ -125,11 +125,11 @@ Scene::~Scene()
     glDeleteBuffers(m_vbos.size(), m_vbos.data());
     glDeleteVertexArrays(m_vaos.size(), m_vaos.data());
 
-    for(auto i = 0; i < m_programs.size(); ++i)
+    for(auto i = 0u; i < m_programs.size(); ++i)
         glDeleteProgram(m_programs[i]);
-    for (auto i = 0; i < m_vertexShaders.size(); ++i)
+    for (auto i = 0u; i < m_vertexShaders.size(); ++i)
         glDeleteShader(m_vertexShaders[i]);
-    for (auto i = 0; i < m_fragmentShaders.size(); ++i)
+    for (auto i = 0u; i < m_fragmentShaders.size(); ++i)
         glDeleteShader(m_fragmentShaders[i]);
 }
 
@@ -139,7 +139,7 @@ void Scene::initialize()
 
     initCubeVertexArray();
 
-    for (auto i = 0; i < m_programs.size(); ++i)
+    for (auto i = 0u; i < m_programs.size(); ++i)
     {
         m_programs[i] = glCreateProgram();
 
@@ -184,9 +184,9 @@ void Scene::initCubeVertexArray()
 
 bool Scene::loadShaders()
 {
-    static const auto sourceFiles = std::array<std::string, 2>{
+    static const auto sourceFiles = std::array<std::string, 2>{{
         "data/stereoscopic_rendering/icosahedron.vert",
-        "data/stereoscopic_rendering/icosahedron.frag", };
+        "data/stereoscopic_rendering/icosahedron.frag", }};
 
     {   static const auto i = 0;
 
@@ -245,7 +245,7 @@ void Scene::render(const glm::mat4 & view, const glm::mat4 & projection)
 	static const auto icosahedronTranslations = std::array<glm::vec3, 1u>{ {
 		glm::vec3(2.0f, 3.0f, 4.0f)}};
 
-	for (auto i = 0; i < icosahedronTranslations.size(); ++i)
+	for (auto i = 0u; i < icosahedronTranslations.size(); ++i)
 	{
 		auto model = glm::translate(icosahedronTranslations[i]);
 		glUniformMatrix4fv(m_uniformLocations[0], 1, GL_FALSE, glm::value_ptr(view * model));

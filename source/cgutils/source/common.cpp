@@ -165,7 +165,7 @@ float mse(const std::vector<glm::vec4> & I, const std::vector<glm::vec4> & K, co
     // based on https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio
 
     auto sum = 0.f;
-    for (auto i = 0; i < I.size(); ++i)
+    for (auto i = 0u; i < I.size(); ++i)
         sum += glm::dot(glm::pow((I[i] - K[i]) * scale, glm::vec4(2.f)), glm::vec4(1.f));
 
     sum /= I.size() * 4.f;
