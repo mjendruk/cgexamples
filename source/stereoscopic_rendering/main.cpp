@@ -14,7 +14,7 @@
 
 #include <cgutils/common.h>
 
-#include "squint.h"
+#include "sidebyside.h"
 #include "scene.h"
 
 #ifdef USE_OVR
@@ -30,7 +30,7 @@ namespace
 {
 
 Scene example;
-auto renderer = std::make_unique<SquintRenderer>();
+auto renderer = std::make_unique<SideBySideRenderer>(true);
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
@@ -107,6 +107,8 @@ int main(int /*argc*/, char ** /*argv*/)
         glfwTerminate();
         return 3;
     }
+
+    renderer->setSize(windowSize);
 
 	// Turn off vsync to let the compositor do its magic
 	// wglSwapIntervalEXT(0);

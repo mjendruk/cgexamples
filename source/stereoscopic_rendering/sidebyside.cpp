@@ -1,5 +1,5 @@
 
-#include "squint.h"
+#include "sidebyside.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -10,14 +10,17 @@
 
 using namespace gl32core;
 
-SquintRenderer::SquintRenderer() = default;
+SideBySideRenderer::SideBySideRenderer(bool swapEyes)
+:   m_swapEyes(swapEyes)
+{
+}
 
-bool SquintRenderer::init()
+bool SideBySideRenderer::init()
 {
     return true;
 }
 
-bool SquintRenderer::render(Scene & scene)
+bool SideBySideRenderer::render(Scene & scene)
 {   
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -30,7 +33,7 @@ bool SquintRenderer::render(Scene & scene)
     for (auto i = 0; i < 2; ++i)
     {
         const auto xOffset = i * width;
-        const auto isLeft = i == 0 ? false : true;
+        const auto isLeft = m_swapEyes ? (i != 0) : (i == 0);
 
         glViewport(xOffset, 0, width, height);
 
@@ -53,12 +56,12 @@ bool SquintRenderer::render(Scene & scene)
     return true;
 }
 
-void SquintRenderer::setSize(const glm::ivec2 & size)
+void SideBySideRenderer::setSize(const glm::ivec2 & size)
 {
     m_size = size;
 }
 
-glm::mat4 SquintRenderer::getViewMatrix(const glm::vec3 & eye, const glm::vec3 & center, 
+glm::mat4 SideBySideRenderer::getViewMatrix(const glm::vec3 & eye, const glm::vec3 & center, 
     const glm::vec3 & up, float iod, bool isLeft)
 {
     const auto shiftDirection = isLeft ? 1.0f : -1.0f;
@@ -69,7 +72,7 @@ glm::mat4 SquintRenderer::getViewMatrix(const glm::vec3 & eye, const glm::vec3 &
 
 // https://www.packtpub.com/books/content/rendering-stereoscopic-3d-models-using-opengl
 // http://relativity.net.au/gaming/java/Frustum.html
-glm::mat4 SquintRenderer::getProjectionMatrix(float iod, float fov, float aspectRatio,
+glm::mat4 SideBySideRenderer::getProjectionMatrix(float iod, float fov, float aspectRatio,
     float viewportDepth, float zNear, float zFar, bool isLeft)
 {
     const auto shiftDirection = isLeft ? 1.0f : -1.0f;

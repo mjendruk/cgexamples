@@ -10,10 +10,10 @@
 
 class Scene;
 
-class SquintRenderer : public AbstractRenderer
+class SideBySideRenderer : public AbstractRenderer
 {
 public:
-    SquintRenderer();
+    SideBySideRenderer(bool swapEyes = false);
 
     bool init() override;
     bool render(Scene & scene) override;
@@ -26,5 +26,6 @@ private:
         float viewportDepth, float zNear, float zFar, bool isLeft);
 
 private:
+    const bool m_swapEyes;
     glm::ivec2 m_size;
 };
