@@ -43,8 +43,8 @@ set(sources
     icosahedron.h
     scene.cpp
     scene.h
-    squint.cpp
-    squint.h
+    sidebyside.cpp
+    sidebyside.h
     ${data}/icosahedron.frag
     ${data}/icosahedron.vert
 )
