@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <memory>
 
 // C++ library for creating windows with OpenGL contexts and receiving 
 // input and events http://www.glfw.org/ 

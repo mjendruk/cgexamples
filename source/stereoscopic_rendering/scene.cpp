@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <memory>
 
 #pragma warning(push)
 #pragma warning(disable : 4201)
