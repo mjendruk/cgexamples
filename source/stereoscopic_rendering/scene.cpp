@@ -133,7 +133,7 @@ Scene::~Scene()
         glDeleteShader(m_fragmentShaders[i]);
 }
 
-void Scene::initialize()
+void Scene::init()
 {
     glClearColor(0.12f, 0.14f, 0.18f, 1.0f);
 

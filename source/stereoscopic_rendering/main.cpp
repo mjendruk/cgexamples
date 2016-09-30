@@ -113,7 +113,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
     g_renderer->setSize(framebufferSize);
 
-    g_example->initialize();
+    g_example->init();
 
     while (!glfwWindowShouldClose(window)) // main loop
     {

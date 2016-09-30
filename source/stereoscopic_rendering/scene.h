@@ -18,7 +18,7 @@ public:
 	Scene();
     ~Scene();
     
-    void initialize();
+    void init();
     bool loadShaders();
 
     void render(const glm::mat4 & view, const glm::mat4 & projection);
