@@ -1,9 +1,6 @@
 
 #include "scene.h"
 
-#include <cmath>
-#include <iostream>
-#include <string>
 #include <memory>
 
 #pragma warning(push)
@@ -13,8 +10,8 @@
 #include <glm/gtx/transform.hpp>
 #pragma warning(pop)
 
-#include <glbinding/gl/enum.h>
-#include <glbinding/gl/functions.h>
+#include <glbinding/gl41core/enum.h>
+#include <glbinding/gl41core/functions.h>
 
 #include <cgutils/common.h>
 
@@ -22,7 +19,7 @@
 #include "make_unique.h"
 
 
-using namespace gl;
+using namespace gl41core;
 
 namespace
 {

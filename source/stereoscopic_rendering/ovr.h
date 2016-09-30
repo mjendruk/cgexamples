@@ -4,13 +4,11 @@
 // Oculus SDK for rendering to the Oculus Rift
 #include "OVR_CAPI_GL.h"
 #include "Extras/OVR_Math.h"
-#include <Extras/OVR_StereoProjection.h>
 
 #include <array>
-#include <functional>
 #include <memory>
 
-#include <glbinding/gl/types.h>
+#include <glbinding/gl41core/types.h>
 
 #include "abstractrenderer.h"
 
@@ -45,8 +43,8 @@ private:
 
 	ovrSizei m_size;
 	ovrTextureSwapChain m_textureChain;
-	gl::GLuint m_depthBuffer;
-	gl::GLuint m_framebuffer;
+	gl41core::GLuint m_depthBuffer;
+    gl41core::GLuint m_framebuffer;
 };
 
 
@@ -58,13 +56,13 @@ public:
 
 	bool init();
 
-	void blit(gl::GLuint destFramebuffer);
+	void blit(gl41core::GLuint destFramebuffer);
 
 private:
 	ovrSession m_session;
 	ovrSizei m_size;
 	ovrMirrorTexture m_texture;
-	gl::GLuint m_framebuffer;
+    gl41core::GLuint m_framebuffer;
 };
 
 
@@ -84,7 +82,7 @@ private:
 
 private:
     static OVR::Matrix4f getViewMatrixForPose(const ovrPosef & pose);
-    static OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov);
+    static OVR::Matrix4f getProjectionMatrixForFOV(const ovrFovPort & fov, float zNear, float zFar);
     
 private:
     ovrSession m_session;

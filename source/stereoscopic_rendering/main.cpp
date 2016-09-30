@@ -30,7 +30,7 @@ namespace
 {
 
 auto g_example = make_unique<Scene>();
-auto g_renderer = make_unique<SideBySideRenderer>(true);
+auto g_renderer = make_unique<OculusRiftRenderer>();
 
 // "The size callback ... which is called when the window is resized."
 // http://www.glfw.org/docs/latest/group__window.html#gaa40cd24840daa8c62f36cafc847c72b6
@@ -82,7 +82,9 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	auto windowSize = glm::ivec2(1280, 720);
 
-	GLFWwindow * window = glfwCreateWindow(windowSize.x, windowSize.y, "", nullptr, nullptr);
+    static const char * programTitle = "Stereoscopic Rendering";
+
+	GLFWwindow * window = glfwCreateWindow(windowSize.x, windowSize.y, programTitle, nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
@@ -92,7 +94,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	glfwSetFramebufferSizeCallback(window, resizeCallback);
 	glfwSetKeyCallback(window, keyCallback);
 
-	std::cout << "Stereoscopic Rendering" << std::endl << std::endl;
+	std::cout << programTitle << std::endl << std::endl;
 
 	std::cout << "Key Binding: " << std::endl
 		<< "  [F5] reload shaders" << std::endl

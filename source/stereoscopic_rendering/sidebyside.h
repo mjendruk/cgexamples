@@ -3,7 +3,7 @@
 
 #include <glm/glm.hpp>
 
-#include <glbinding/gl/types.h>
+#include <glbinding/gl41core/types.h>
 
 #include "abstractrenderer.h"
 

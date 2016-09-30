@@ -3,12 +3,12 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <glbinding/gl32core/gl.h>
+#include <glbinding/gl41core/gl.h>
 
 #include "scene.h"
 
 
-using namespace gl32core;
+using namespace gl41core;
 
 SideBySideRenderer::SideBySideRenderer(bool swapEyes)
 :   m_swapEyes(swapEyes)
@@ -40,10 +40,8 @@ bool SideBySideRenderer::render(Scene & scene)
         static const auto iod = 0.0635f;
         static const auto fov = 90.0f;
         static const auto viewportDepth = 2.0f;
-        static const auto zNear = 0.02f;
-        static const auto zFar = 100.0f;
         const auto projection = getProjectionMatrix(iod, fov, aspectRatio, 
-            viewportDepth, zNear, zFar, isLeft);
+            viewportDepth, zNear(), zFar(), isLeft);
 
         static const auto eye = glm::vec3(0.0f, 1.8f, 0.0f);
         static const auto center = glm::vec3(0.0f, 1.6f, 2.0f);

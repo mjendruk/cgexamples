@@ -7,7 +7,7 @@
 
 #include <glm/vec3.hpp>
 
-#include <glbinding/gl/types.h>
+#include <glbinding/gl41core/types.h>
 
 
 /**

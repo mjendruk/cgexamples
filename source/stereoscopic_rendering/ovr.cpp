@@ -1,8 +1,6 @@
 
 #include "ovr.h"
 
-#include <cassert>
-
 #if defined(_WIN32)
     #include <dxgi.h> // for GetDefaultAdapterLuid
     #pragma comment(lib, "dxgi.lib")
@@ -10,11 +8,12 @@
 
 #include <glm/glm.hpp>
 
-#include <glbinding/gl32core/gl.h>
+#include <glbinding/gl41core/gl.h>
 
 #include "Scene.h"
 
-using namespace gl32core;
+
+using namespace gl41core;
 
 namespace
 {
@@ -309,7 +308,7 @@ bool OculusRiftRenderer::render(Scene & scene)
             framebuffer->bindAndClear();
 
             const auto view = getViewMatrixForPose(eyePoses[eye]);
-            const auto projection = getProjectionMatrixForFOV(m_hmdDesc.DefaultEyeFov[eye]);
+            const auto projection = getProjectionMatrixForFOV(m_hmdDesc.DefaultEyeFov[eye], zNear(), zFar());
 
             scene.render(toGlm(view), toGlm(projection));
 
@@ -392,7 +391,7 @@ OVR::Matrix4f OculusRiftRenderer::getViewMatrixForPose(const ovrPosef & pose)
     return view;
 }
 
-OVR::Matrix4f OculusRiftRenderer::getProjectionMatrixForFOV(const ovrFovPort & fov)
+OVR::Matrix4f OculusRiftRenderer::getProjectionMatrixForFOV(const ovrFovPort & fov, float zNear, float zFar)
 {
-    return ovrMatrix4f_Projection(fov, 0.2f, 1000.0f, ovrProjection_None);
+    return ovrMatrix4f_Projection(fov, zNear, zFar, ovrProjection_None);
 }

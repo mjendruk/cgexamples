@@ -5,7 +5,7 @@
 
 #include <glm/fwd.hpp>
 
-#include <glbinding/gl32core/gl.h>  // this is a OpenGL feature include; it declares all OpenGL 3.2 Core symbols
+#include <glbinding/gl41core/gl.h>  // this is a OpenGL feature include; it declares all OpenGL 4.1 Core symbols
 
 class Icosahedron;
 
@@ -30,14 +30,14 @@ protected:
 protected:
     std::unique_ptr<Icosahedron> m_object;
 
-    std::array<gl::GLuint, 1> m_vaos;
-    std::array<gl::GLuint, 1> m_vbos;
+    std::array<gl41core::GLuint, 1> m_vaos;
+    std::array<gl41core::GLuint, 1> m_vbos;
 
-    std::array<gl::GLuint, 1> m_programs;
-    std::array<gl::GLuint, 1> m_vertexShaders;
-    std::array<gl::GLuint, 1> m_fragmentShaders;
+    std::array<gl41core::GLuint, 1> m_programs;
+    std::array<gl41core::GLuint, 1> m_vertexShaders;
+    std::array<gl41core::GLuint, 1> m_fragmentShaders;
 
-    std::array<gl::GLuint, 3> m_uniformLocations;
+    std::array<gl41core::GLuint, 3> m_uniformLocations;
 
     int m_width;
     int m_height;

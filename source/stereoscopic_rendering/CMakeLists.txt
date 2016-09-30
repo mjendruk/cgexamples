@@ -38,6 +38,7 @@ set(data "${CMAKE_SOURCE_DIR}/data/${target}")
 set(sources
     main.cpp
 
+    abstractrenderer.cpp
     abstractrenderer.h
     icosahedron.cpp
     icosahedron.h
